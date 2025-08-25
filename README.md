@@ -24,7 +24,7 @@ TODO
 
 * 准备环境，确保您的系统已安装 FFmpeg。脚本会尝试调用名为 install_ffmpeg_if_needed.bat 的辅助脚本来安装 FFmpeg。
 * 运行脚本，想要测试编码器则双击运行 encoder_test.bat，测试解码器则双击运行 decoder_test.bat
-* 查看结果，脚本将自动运行一系列测试，并在命令行窗口中实时显示结果。成功的测试将以绿色文字显示 <font color="#16C606">succeeded</font>，失败的测试将以红色文字显示 <font color="#E74856">failed</font>。
+* 查看结果，脚本将自动运行一系列测试，并在命令行窗口中实时显示结果。成功的测试将以绿色文字显示 ${\color{green}succeeded}$，失败的测试将以红色文字显示 ${\color{red}failed}$。
 
 脚本执行完毕后，将能清晰地看到您的系统支持哪些硬件编码器以及它们在不同分辨率下的表现。
 
@@ -32,74 +32,74 @@ TODO
 下面是作者本地运行测试的部分结果：
 
 NVIDIA Hardware H264 Encoder(NVEnc):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#E74856">8K failed</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{red}8K failed}$
 <br/>Intel Hardware H264 Encoder(QSV):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#E74856">8K failed</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{red}8K failed}$
 <br/>Intel Hardware H265 Encoder(QSV):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#16C606">8K succeeded</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{green}8K succeeded}$
 <br/>Intel Hardware AV1 Encoder(QSV):
-<br/>&nbsp;<font color="#E74856">240p failed</font>
-<br/>&nbsp;<font color="#E74856">360p failed</font>
-<br/>&nbsp;<font color="#E74856">480p failed</font>
-<br/>&nbsp;<font color="#E74856">720p failed</font>
-<br/>&nbsp;<font color="#E74856">1080p failed</font>
-<br/>&nbsp;<font color="#E74856">2K failed</font>
-<br/>&nbsp;<font color="#E74856">4K failed</font>
-<br/>&nbsp;<font color="#E74856">8K failed</font>
+<br/>&nbsp;${\color{red}240p failed}$
+<br/>&nbsp;${\color{red}360p failed}$
+<br/>&nbsp;${\color{red}480p failed}$
+<br/>&nbsp;${\color{red}720p failed}$
+<br/>&nbsp;${\color{red}1080p failed}$
+<br/>&nbsp;${\color{red}2K failed}$
+<br/>&nbsp;${\color{red}4K failed}$
+<br/>&nbsp;${\color{red}8K failed}$
 <br/>Intel Hardware MJPEG Encoder(QSV):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#16C606">8K succeeded</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{green}8K succeeded}$
 <br/>Intel Hardware MJPEG-2 Encoder(QSV):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#E74856">2K failed</font>
-<br/>&nbsp;<font color="#E74856">4K failed</font>
-<br/>&nbsp;<font color="#E74856">8K failed</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{red}2K failed}$
+<br/>&nbsp;${\color{red}4K failed}$
+<br/>&nbsp;${\color{red}8K failed}$
 <br/>Intel Hardware VP9 Encoder(QSV):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#16C606">8K succeeded</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{green}8K succeeded}$
 <br/>AMD Hardware H264 Encoder(AMF):
-<br/>&nbsp;<font color="#16C606">240p succeeded</font>
-<br/>&nbsp;<font color="#16C606">360p succeeded</font>
-<br/>&nbsp;<font color="#16C606">480p succeeded</font>
-<br/>&nbsp;<font color="#16C606">720p succeeded</font>
-<br/>&nbsp;<font color="#16C606">1080p succeeded</font>
-<br/>&nbsp;<font color="#16C606">2K succeeded</font>
-<br/>&nbsp;<font color="#16C606">4K succeeded</font>
-<br/>&nbsp;<font color="#E74856">8K failed</font>
+<br/>&nbsp;${\color{green}240p succeeded}$
+<br/>&nbsp;${\color{green}360p succeeded}$
+<br/>&nbsp;${\color{green}480p succeeded}$
+<br/>&nbsp;${\color{green}720p succeeded}$
+<br/>&nbsp;${\color{green}1080p succeeded}$
+<br/>&nbsp;${\color{green}2K succeeded}$
+<br/>&nbsp;${\color{green}4K succeeded}$
+<br/>&nbsp;${\color{red}8K failed}$
