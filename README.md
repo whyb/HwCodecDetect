@@ -31,75 +31,147 @@ TODO
 ## 效果展示
 下面是作者本地运行测试的部分结果：
 
+
 NVIDIA Hardware H264 Encoder(NVEnc):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{red}8K failed}$
-<br/>Intel Hardware H264 Encoder(QSV):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{red}8K failed}$
-<br/>Intel Hardware H265 Encoder(QSV):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{green}8K succeeded}$
-<br/>Intel Hardware AV1 Encoder(QSV):
-<br/>&nbsp;${\color{red}240p failed}$
-<br/>&nbsp;${\color{red}360p failed}$
-<br/>&nbsp;${\color{red}480p failed}$
-<br/>&nbsp;${\color{red}720p failed}$
-<br/>&nbsp;${\color{red}1080p failed}$
-<br/>&nbsp;${\color{red}2K failed}$
-<br/>&nbsp;${\color{red}4K failed}$
-<br/>&nbsp;${\color{red}8K failed}$
-<br/>Intel Hardware MJPEG Encoder(QSV):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{green}8K succeeded}$
-<br/>Intel Hardware MJPEG-2 Encoder(QSV):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{red}2K failed}$
-<br/>&nbsp;${\color{red}4K failed}$
-<br/>&nbsp;${\color{red}8K failed}$
-<br/>Intel Hardware VP9 Encoder(QSV):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{green}8K succeeded}$
-<br/>AMD Hardware H264 Encoder(AMF):
-<br/>&nbsp;${\color{green}240p succeeded}$
-<br/>&nbsp;${\color{green}360p succeeded}$
-<br/>&nbsp;${\color{green}480p succeeded}$
-<br/>&nbsp;${\color{green}720p succeeded}$
-<br/>&nbsp;${\color{green}1080p succeeded}$
-<br/>&nbsp;${\color{green}2K succeeded}$
-<br/>&nbsp;${\color{green}4K succeeded}$
-<br/>&nbsp;${\color{red}8K failed}$
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{red}8K failed}$
+
+Intel Hardware H264 Encoder(QSV):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{red}8K failed}$
+
+Intel Hardware H265 Encoder(QSV):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{green}8K succeeded}$
+
+Intel Hardware AV1 Encoder(QSV):
+
+${\color{red}240p failed}$
+
+${\color{red}360p failed}$
+
+${\color{red}480p failed}$
+
+${\color{red}720p failed}$
+
+${\color{red}1080p failed}$
+
+${\color{red}2K failed}$
+
+${\color{red}4K failed}$
+
+${\color{red}8K failed}$
+
+Intel Hardware MJPEG Encoder(QSV):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{green}8K succeeded}$
+
+Intel Hardware MJPEG-2 Encoder(QSV):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{red}2K failed}$
+
+${\color{red}4K failed}$
+
+${\color{red}8K failed}$
+
+Intel Hardware VP9 Encoder(QSV):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{green}8K succeeded}$
+
+AMD Hardware H264 Encoder(AMF):
+
+${\color{green}240p succeeded}$
+
+${\color{green}360p succeeded}$
+
+${\color{green}480p succeeded}$
+
+${\color{green}720p succeeded}$
+
+${\color{green}1080p succeeded}$
+
+${\color{green}2K succeeded}$
+
+${\color{green}4K succeeded}$
+
+${\color{red}8K failed}$
