@@ -440,4 +440,8 @@ IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[
 ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v hevc_vulkan -pixel_format yuv420p "%directory_path%/vulkan_h265_8K.mp4"
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
+
+rem clean all
+for /d %%d in ("%directory_path%\*") do rd /s /q "%%d"
+for %%f in ("%directory_path%\*") do del /q "%%f"
 pause
