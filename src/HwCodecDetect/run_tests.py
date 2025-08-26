@@ -144,7 +144,13 @@ def _run_encoder_tests(test_dir):
             title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
             print(f"\n{title}")
 
+            skip_rest = False
             for res_name, res_size in RESOLUTIONS.items():
+                if skip_rest:
+                    results[title][res_name] = "failed"
+                    print(f"  {res_name}: {RED}skipped due to earlier failure{RESET}")
+                    continue
+
                 # Encoder tests generate the output file
                 file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
                 output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
@@ -169,6 +175,9 @@ def _run_encoder_tests(test_dir):
 
                 status = "succeeded" if _run_ffmpeg_command(command) else "failed"
                 results[title][res_name] = status
+
+                if res_name == "240p" and status == "failed":
+                    skip_rest = True
                 
                 color_code = GREEN if status == "succeeded" else RED
                 print(f"  {res_name}: {color_code}{status}{RESET}")
@@ -193,7 +202,12 @@ def _run_decoder_tests(test_dir):
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             print(f"\n{title}")
 
+            skip_rest = False
             for res_name, res_size in RESOLUTIONS.items():
+                if skip_rest:
+                    results[title][res_name] = "failed"
+                    print(f"  {res_name}: {RED}skipped due to earlier failure{RESET}")
+                    continue
                 file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
                 
                 # We need to find *any* existing file for this codec/resolution combo
@@ -240,6 +254,9 @@ def _run_decoder_tests(test_dir):
                 
                 status = "succeeded" if _run_ffmpeg_command(command) else "failed"
                 results[title][res_name] = status
+
+                if res_name == "240p" and status == "failed":
+                    skip_rest = True
                 
                 color_code = GREEN if status == "succeeded" else RED
                 print(f"  {res_name}: {color_code}{status}{RESET}")
@@ -348,7 +365,7 @@ def run_all_tests():
     shutil.rmtree(temp_dir)
     print("Cleanup complete.")
 
-    return all_results
+    return
     
 if __name__ == "__main__":
     run_all_tests()
