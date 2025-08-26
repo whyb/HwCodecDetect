@@ -6,6 +6,8 @@ import shutil
 import tempfile
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
+from colorama import init, Fore, Style
+init(autoreset=True)
 
 # Step 0: Define the data for codecs and resolutions
 # This approach avoids massive code duplication.
@@ -131,9 +133,9 @@ def _run_encoder_tests(test_dir):
     """Runs hardware encoder tests and returns a structured dictionary of results."""
     results = defaultdict(dict)
     
-    GREEN = "\033[92m"
-    RED = "\033[91m"
-    RESET = "\033[0m"
+    GREEN = Fore.GREEN
+    RED = Fore.RED
+    RESET = Style.RESET_ALL
     
     print("\n--- Running Encoder Tests ---")
 
@@ -253,9 +255,9 @@ def _get_display_width(s):
 
 def _print_summary_table(results):
     """Prints a formatted summary table of all test results."""
-    GREEN_CHECK = "\033[92m✓\033[0m"
-    RED_X = "\033[91m×\033[0m"
-    GRAY_DASH = "\033[90m—\033[0m"
+    GREEN_CHECK = Fore.GREEN + "✓" + Style.RESET_ALL
+    RED_X = Fore.RED + "×" + Style.RESET_ALL
+    GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
     
     # Get column headers (resolutions) and row headers (decoder titles)
     resolutions = list(RESOLUTIONS.keys())
