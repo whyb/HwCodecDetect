@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HwCodecDetect"
+version = "0.0.1"
+authors = [
+  { name="whyb", email="whyber@outlook.com" },
+]
+description = "A cross-platform tool to automatically detect and test hardware video decoders/encoders using FFmpeg."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "BSD-3-Clause license" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD-3-Clause license",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Video",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: Utilities",
+]
+
+[project.scripts]
+hwcodecdetect = "HwCodecDetect.run_tests:run_all_tests"
+
+[project.urls]
+Homepage = "https://github.com/whyb/HwCodecDetect"
+Issues = "https://github.com/whyb/HwCodecDetect/issues"

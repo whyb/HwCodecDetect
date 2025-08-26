@@ -86,23 +86,23 @@ IF NOT EXIST "%directory_path%/mpeg4_2K.mp4" ffmpeg -loglevel quiet -hide_banner
 IF NOT EXIST "%directory_path%/mpeg4_4K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=3840x2160:d=1 -frames:v 1 -c:v mpeg4 -pixel_format yuv420p "%directory_path%/mpeg4_4K.mp4">nul 2>&1
 IF NOT EXIST "%directory_path%/mpeg4_8K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v mpeg4 -pixel_format yuv420p "%directory_path%/mpeg4_8K.mp4">nul 2>&1
 
-IF NOT EXIST "%directory_path%/vp8_240p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=426x240:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_240p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_360p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=640x360:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_360p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_480p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=854x480:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_480p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_720p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1280x720:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_720p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_1080p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1920x1080:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_1080p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_2K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=2560x1440:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_2K.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_4K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=3840x2160:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_4K.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp8_8K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_8K.mp4">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_240p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=426x240:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_240p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_360p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=640x360:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_360p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_480p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=854x480:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_480p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_720p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1280x720:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_720p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_1080p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1920x1080:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_1080p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_2K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=2560x1440:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_2K.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_4K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=3840x2160:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_4K.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp8_8K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v libvpx -pixel_format yuv420p "%directory_path%/vp8_8K.webm">nul 2>&1
 
-IF NOT EXIST "%directory_path%/vp9_240p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=426x240:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_240p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_360p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=640x360:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_360p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_480p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=854x480:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_480p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_720p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1280x720:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_720p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_1080p.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1920x1080:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_1080p.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_2K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=2560x1440:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_2K.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_4K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=3840x2160:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_4K.mp4">nul 2>&1
-IF NOT EXIST "%directory_path%/vp9_8K.mp4" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_8K.mp4">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_240p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=426x240:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_240p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_360p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=640x360:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_360p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_480p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=854x480:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_480p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_720p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1280x720:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_720p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_1080p.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=1920x1080:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_1080p.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_2K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=2560x1440:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_2K.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_4K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=3840x2160:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_4K.webm">nul 2>&1
+IF NOT EXIST "%directory_path%/vp9_8K.webm" ffmpeg -loglevel quiet -hide_banner -y -f lavfi -i color=white:s=7680x4320:d=1 -frames:v 1 -c:v libvpx-vp9 -pixel_format yuv420p "%directory_path%/vp9_8K.webm">nul 2>&1
 
 rem 开始测试decoder
 
@@ -233,39 +233,39 @@ ffmpeg -loglevel quiet -hide_banner -y -c:v mpeg4_cuvid -i "%directory_path%/mpe
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo NVIDIA Hardware VP8 Decoder(NVDec):
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_240p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_240p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_360p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_360p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_480p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_480p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_720p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_720p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_1080p.mp4" -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_1080p.webm" -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_2K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_2K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_4K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_4K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_cuvid -i "%directory_path%/vp8_8K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo NVIDIA Hardware VP9 Decoder(NVDec):
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_240p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_240p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_360p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_360p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_480p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_480p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_720p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_720p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_1080p.mp4" -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_1080p.webm" -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_2K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_2K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_4K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_4K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp9_cuvid -i "%directory_path%/vp9_8K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 
@@ -360,21 +360,21 @@ ffmpeg -loglevel quiet -hide_banner -y -c:v mpeg2_qsv -i "%directory_path%/mpeg2
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Intel Hardware VP8 Decoder(QSV):
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_240p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_240p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_360p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_360p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_480p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_480p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_720p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_720p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_1080p.mp4" -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_1080p.webm" -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_2K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_2K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_4K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_4K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -c:v vp8_qsv -i "%directory_path%/vp8_8K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Intel Hardware VP9 Decoder(QSV):
@@ -523,21 +523,21 @@ ffmpeg -loglevel quiet -hide_banner -y -c:v dxva2 -i "%directory_path%/mpeg4_8K.
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Microsoft DirectX Video Acceleration VP8 Decoder(DXVA2):
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_240p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_240p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_360p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_360p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_480p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_480p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_720p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_720p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_1080p.mp4" -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_1080p.webm" -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_2K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_2K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_4K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_4K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel dxva2 -i "%directory_path%/vp8_8K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Microsoft DirectX Video Acceleration VP9 Decoder(DXVA2):
@@ -686,21 +686,21 @@ ffmpeg -loglevel quiet -hide_banner -y -c:v d3d11va -i "%directory_path%/mpeg4_8
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA):
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_240p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_240p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_360p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_360p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_480p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_480p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_720p.mp4"  -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_720p.webm"  -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_1080p.mp4" -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_1080p.webm" -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_2K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_2K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_4K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_4K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
-ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
+ffmpeg -loglevel quiet -hide_banner -y -hwaccel d3d11va -i "%directory_path%/vp8_8K.webm"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 echo Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA):
