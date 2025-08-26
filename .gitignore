@@ -1,0 +1,3 @@
+*.pyc
+/src/HwCodecDetect.egg-info/
+/dist/

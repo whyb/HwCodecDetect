@@ -11,7 +11,10 @@ authors = [
 description = "A cross-platform tool to automatically detect and test hardware video decoders/encoders using FFmpeg."
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "BSD-3-Clause license" }
+license = "BSD-3-Clause"
+license-files = [
+    "LICENSE",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD-3-Clause license",
