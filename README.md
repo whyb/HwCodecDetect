@@ -7,9 +7,9 @@
 
 ## 主要功能
 ### 编码器
-本脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
-| 编码器名称                     	| 支持的视频格式                               |
-|--------------------------------	|------------------------------------------- |
+encoder_test脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
+| 编码器名称                     	 | 支持的视频编码格式                           |
+|-----------------------------------|------------------------------------------- |
 | NVEnc                          	| H.264、H.265、AV1                          |
 | QSV (Quick Sync Video)         	| H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
 | AMF (Advanced Media Framework)    | H.264、H.265、AV1                          |
@@ -18,7 +18,15 @@
 | Vulkan                         	| H.264、H.265                               |
 
 ### 解码器
-TODO
+decoder_test脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
+| 编码器名称                                 | 支持的视频编码格式                                             |
+|------------------------------------------	|------------------------------------------------------------- |
+| NVDec (CUVID)                  	        | H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
+| QSV (Quick Sync Video)         	        | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9                    |
+| AMF (Advanced Media Framework)            | H.264、H.265、AV1                                            |
+| DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
+| D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
+
 
 ## 如何使用
 
