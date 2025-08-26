@@ -1,14 +1,16 @@
-# FFmpeg 硬件编解码器测试脚本
-在今天的编解码硬件加速的生态中，视频编解码技术面临着一个“百家争鸣”的局面。为了利用 GPU 的强大算力，各家硬件厂商都推出了自己的加速框架或编码器标准，例如 NVIDIA 的 NVEnc/NVDec、Intel 的 QSV 和 AMD 的 AMF。此外，操作系统层也提供了通用的接口，如微软的 Media Foundation 和 DXAV 、 D3D12VA ，而开源社区则发展了跨平台的 VAAPI 和 Vulkan 等标准。
+# FFmpeg Hardware Codec Test Script(HwCodecDetect)
+[中文版](README.zh.md)
 
-这种多样性虽然带来了技术上的进步，但也给普通用户和开发者带来了挑战。由于历史遗留和兼容性问题，一个硬件可能支持多种编码器，但它们在性能、支持的格式和分辨率方面都有所不同。因此，在使用 FFmpeg 进行硬件加速时，很难直观地知道哪种编码器最适合自己的设备。
+Today's hardware-accelerated video codec landscape is a "field of a hundred schools of thought." To leverage the immense power of GPUs, hardware manufacturers have introduced their own acceleration frameworks and encoding standards, such as NVIDIA's NVEnc/NVDec, Intel's QSV, and AMD's AMF. Additionally, operating systems provide universal APIs like Microsoft's Media Foundation, DXVA, and D3D12VA, while the open-source community has developed cross-platform standards like VAAPI and Vulkan.
 
-本项目正是为了解决这一痛点而生。它是一个用于自动化检测系统硬件视频编码器功能的便捷工具。它利用 FFmpeg，通过生成不同分辨率（从 240p 到 8K）的单帧视频文件，并尝试使用各种硬件编码器进行处理，以此来快速判断哪些硬件编码器在您的系统上可用以及它们所支持的分辨率。
+While this diversity drives technological progress, it also presents a challenge for users and developers. Due to historical issues and compatibility quirks, a single piece of hardware might support multiple encoders, but they can differ significantly in performance, supported formats, and resolutions. As a result, when using FFmpeg for hardware acceleration, it's not always clear which encoder is best suited for a specific device.
 
-## 主要功能
-### 编码器
-脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
-| 编码器名称                     	 | 支持的视频编码格式                           |
+This project was created to solve this very problem. It's a convenient tool for automatically detecting the hardware video encoder capabilities of your system. Using FFmpeg, it generates single-frame video files at various resolutions (from 240p to 8K) and attempts to process them with different hardware encoders. This allows it to quickly determine which hardware encoders are available on your system and what resolutions they support.
+
+## Key Features
+### Encoders
+The script automatically tests and reports on the following major hardware encoders and their supported formats:
+| Encoder Name                   	 | Supported Video Formats                   |
 |-----------------------------------|------------------------------------------- |
 | NVEnc                          	| H.264、H.265、AV1                          |
 | QSV (Quick Sync Video)         	| H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
@@ -17,9 +19,9 @@
 | VAAPI (Video Acceleration API) 	| H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
 | Vulkan                         	| H.264、H.265                               |
 
-### 解码器
-脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
-| 编码器名称                                 | 支持的视频编码格式                                             |
+### Decoders
+The script automatically tests and reports on the following major hardware decoders and their supported formats:
+| Decoder Name                              | Supported Video Formats                                      |
 |------------------------------------------	|------------------------------------------------------------- |
 | NVDec (CUVID)                  	        | H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 | QSV (Quick Sync Video)         	        | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9                    |
@@ -28,25 +30,22 @@
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 
 
-## 如何使用
+## How to Use
 
-### 1. 克隆仓库
-首先，克隆此仓库到你的本地。
+### 1. Install via PyPI
 ```bash
-git clone https://github.com/whyb/HwCodecDetect.git
-cd HwCodecDetect
+pip install HwCodecDetect
 ```
 
-### 2. 运行测试
+### 2. Run the Test
 ```bash
-python -m HwCodecDetect.run_tests
+HwCodecDetect
 ```
 
 
-## 效果展示
-下面是本地运行测试的可能的结果：
+## Demo
+Here are some possible results from a local test run:
 
 ![decoder test result](imgs/decoder.png)
-
 
 ![encoder test result](imgs/encoder.png)
