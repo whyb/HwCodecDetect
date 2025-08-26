@@ -7,7 +7,7 @@
 
 ## 主要功能
 ### 编码器
-encoder_test脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
+脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
 | 编码器名称                     	 | 支持的视频编码格式                           |
 |-----------------------------------|------------------------------------------- |
 | NVEnc                          	| H.264、H.265、AV1                          |
@@ -18,7 +18,7 @@ encoder_test脚本会自动测试并报告以下主流硬件编码器及其支�
 | Vulkan                         	| H.264、H.265                               |
 
 ### 解码器
-decoder_test脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
+脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
 | 编码器名称                                 | 支持的视频编码格式                                             |
 |------------------------------------------	|------------------------------------------------------------- |
 | NVDec (CUVID)                  	        | H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
@@ -30,156 +30,23 @@ decoder_test脚本会自动测试并报告以下主流硬件解码器及其支�
 
 ## 如何使用
 
-* 准备环境，确保您的系统已安装 FFmpeg。脚本会尝试调用名为 install_ffmpeg_if_needed.bat 的辅助脚本来安装 FFmpeg。
-* 运行脚本，想要测试编码器则双击运行 encoder_test.bat，测试解码器则双击运行 decoder_test.bat
-* 查看结果，脚本将自动运行一系列测试，并在命令行窗口中实时显示结果。成功的测试将以绿色文字显示 ${\color{green}succeeded}$，失败的测试将以红色文字显示 ${\color{red}failed}$。
+### 1. 克隆仓库
+首先，克隆此仓库到你的本地。
+```bash
+git clone https://github.com/whyb/HwCodecDetect.git
+cd HwCodecDetect
+```
 
-脚本执行完毕后，将能清晰地看到您的系统支持哪些硬件编码器以及它们在不同分辨率下的表现。
+### 2. 运行测试
+```bash
+python -m HwCodecDetect.run_tests
+```
+
 
 ## 效果展示
-下面是作者本地运行测试的部分结果：
+下面是本地运行测试的可能的结果：
 
+![decoder test result](imgs/decoder.png)
 
-NVIDIA Hardware H264 Encoder(NVEnc):
 
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{red}8K failed}$
-
-Intel Hardware H264 Encoder(QSV):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{red}8K failed}$
-
-Intel Hardware H265 Encoder(QSV):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{green}8K succeeded}$
-
-Intel Hardware AV1 Encoder(QSV):
-
-${\color{red}240p failed}$
-
-${\color{red}360p failed}$
-
-${\color{red}480p failed}$
-
-${\color{red}720p failed}$
-
-${\color{red}1080p failed}$
-
-${\color{red}2K failed}$
-
-${\color{red}4K failed}$
-
-${\color{red}8K failed}$
-
-Intel Hardware MJPEG Encoder(QSV):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{green}8K succeeded}$
-
-Intel Hardware MJPEG-2 Encoder(QSV):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{red}2K failed}$
-
-${\color{red}4K failed}$
-
-${\color{red}8K failed}$
-
-Intel Hardware VP9 Encoder(QSV):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{green}8K succeeded}$
-
-AMD Hardware H264 Encoder(AMF):
-
-${\color{green}240p succeeded}$
-
-${\color{green}360p succeeded}$
-
-${\color{green}480p succeeded}$
-
-${\color{green}720p succeeded}$
-
-${\color{green}1080p succeeded}$
-
-${\color{green}2K succeeded}$
-
-${\color{green}4K succeeded}$
-
-${\color{red}8K failed}$
+![encoder test result](imgs/encoder.png)

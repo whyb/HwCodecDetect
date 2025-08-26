@@ -59,15 +59,15 @@ DECODER_TITLES = {
 }
 
 DECODERS = {
-    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va"], "type": "decoder"},
-    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va"], "type": "decoder"},
-    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va"], "type": "decoder"},
-    "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va"], "type": "decoder"},
-    "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va"], "type": "decoder"},
-    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va"], "type": "decoder"},
-    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va"], "type": "decoder"},
-    "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va"], "type": "decoder"},
-    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va"], "type": "decoder"},
+    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va"]},
+    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va"]},
+    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va"]},
+    "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va"]},
+    "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va"]},
+    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va"]},
+    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va"]},
+    "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va"]},
+    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va"]},
 }
 
 # --- Encoder Definitions ---
@@ -98,13 +98,20 @@ ENCODER_TITLES = {
 }
 
 ENCODERS = {
-    "h264": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_vaapi", "h264_vulkan"],
-    "h265": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_vaapi", "hevc_vulkan"],
-    "av1": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi"],
-    "mjpeg": ["mjpeg_qsv", "mjpeg_vaapi"],
-    "mpeg2": ["mpeg2_qsv", "mpeg2_vaapi"],
-    "vp8": ["vp8_vaapi"],
-    "vp9": ["vp9_qsv", "vp9_vaapi"],
+    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_vaapi", "h264_vulkan"]},
+    "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_vaapi", "hevc_vulkan"]},
+    "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi"]},
+    "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
+    "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
+    "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
+    "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
+}
+
+# Combine both decoder and encoder data into a single structure
+# This makes it easier to work with all codecs and their associated CPU libs
+ALL_CODECS = {
+    **DECODERS,
+    **{k: v for k, v in ENCODERS.items() if k not in DECODERS}
 }
 
 def _run_ffmpeg_command(command):
@@ -120,95 +127,6 @@ def _run_ffmpeg_command(command):
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
-def _generate_test_files(test_dir):
-    """Generates a series of test video files using CPU encoders."""
-    print("Generating test video files...")
-    for codec, info in DECODERS.items():
-        for res_name, res_size in RESOLUTIONS.items():
-            file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
-            file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
-            
-            if os.path.exists(file_path):
-                continue
-
-            command = [
-                "ffmpeg",
-                "-loglevel", "quiet",
-                "-hide_banner",
-                "-y",
-                "-f", "lavfi",
-                "-i", f"color=white:s={res_size}:d=1",
-                "-frames:v", "1",
-                "-c:v", info['lib'],
-                *([f"-preset", "ultrafast"] if codec in ["h264", "h265"] else []),
-                "-pixel_format", "yuv420p",
-                file_path,
-            ]
-            
-            if not _run_ffmpeg_command(command):
-                print(f"Error generating {codec}_{res_name}{file_ext}", file=sys.stderr)
-    print("Test file generation complete.")
-
-def _run_decoder_tests(test_dir):
-    """Runs hardware decoder tests and returns a structured dictionary of results."""
-    results = defaultdict(dict)
-    
-    GREEN = "\033[92m"
-    RED = "\033[91m"
-    RESET = "\033[0m"
-
-    print("\n--- Running Decoder Tests ---")
-
-    for codec, info in DECODERS.items():
-        if info['type'] != 'decoder':
-            continue
-            
-        for hw_decoder in info['hw_decoders']:
-            title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
-            print(f"\n{title}")
-
-            for res_name in RESOLUTIONS:
-                file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
-                input_file = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
-                
-                if not os.path.exists(input_file):
-                    results[title][res_name] = "skipped"
-                    print(f"  {res_name}: {RED}skipped (file not found){RESET}")
-                    continue
-
-                if hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8"]:
-                    command = [
-                        "ffmpeg",
-                        "-loglevel", "quiet",
-                        "-hide_banner",
-                        "-y",
-                        "-hwaccel", hw_decoder,
-                        "-i", input_file,
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
-                        "-f", "null", "null",
-                    ]
-                else:
-                    command = [
-                        "ffmpeg",
-                        "-loglevel", "quiet",
-                        "-hide_banner",
-                        "-y",
-                        "-c:v", hw_decoder,
-                        "-i", input_file,
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
-                        "-f", "null", "null",
-                    ]
-                
-                status = "succeeded" if _run_ffmpeg_command(command) else "failed"
-                results[title][res_name] = status
-                
-                color_code = GREEN if status == "succeeded" else RED
-                print(f"  {res_name}: {color_code}{status}{RESET}")
-
-    return results
-
 def _run_encoder_tests(test_dir):
     """Runs hardware encoder tests and returns a structured dictionary of results."""
     results = defaultdict(dict)
@@ -219,12 +137,13 @@ def _run_encoder_tests(test_dir):
     
     print("\n--- Running Encoder Tests ---")
 
-    for codec, encoder_list in ENCODERS.items():
-        for encoder in encoder_list:
+    for codec, info in ENCODERS.items():
+        for encoder in info['hw_encoders']:
             title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
             print(f"\n{title}")
 
             for res_name, res_size in RESOLUTIONS.items():
+                # Encoder tests generate the output file
                 file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
                 output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
 
@@ -246,6 +165,77 @@ def _run_encoder_tests(test_dir):
                     command.insert(9, "-dual_gfx")
                     command.insert(10, "0")
 
+                status = "succeeded" if _run_ffmpeg_command(command) else "failed"
+                results[title][res_name] = status
+                
+                color_code = GREEN if status == "succeeded" else RED
+                print(f"  {res_name}: {color_code}{status}{RESET}")
+
+    return results
+
+def _run_decoder_tests(test_dir):
+    """
+    Runs hardware decoder tests and returns a structured dictionary of results.
+    It checks for existing files first and generates new ones if needed.
+    """
+    results = defaultdict(dict)
+    
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
+
+    print("\n--- Running Decoder Tests ---")
+
+    for codec, info in DECODERS.items():
+        for hw_decoder in info['hw_decoders']:
+            title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+            print(f"\n{title}")
+
+            for res_name, res_size in RESOLUTIONS.items():
+                file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+                
+                # We need to find *any* existing file for this codec/resolution combo
+                # A simple approach is to check if a file with the correct codec and resolution exists
+                found_file = False
+                test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
+                
+                # Try to use any file already generated from encoder tests
+                for filename in os.listdir(test_dir):
+                    if filename.startswith(f"{codec}_") and f"_{res_name}" in filename:
+                         test_file_path = os.path.join(test_dir, filename)
+                         found_file = True
+                         break
+                
+                # If no file found, generate one using CPU encoder
+                if not found_file:
+                    cpu_lib = ALL_CODECS[codec]["lib"]
+                    command = [
+                        "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+                        "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
+                        "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
+                        test_file_path,
+                    ]
+                    if not _run_ffmpeg_command(command):
+                         results[title][res_name] = "skipped"
+                         print(f"  {res_name}: {RED}skipped (failed to generate temp file){RESET}")
+                         continue
+
+                # Run the actual decoder test
+                if hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8"]:
+                    command = [
+                        "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+                        "-hwaccel", hw_decoder, "-i", test_file_path,
+                        "-c:v", "libx264", "-preset", "ultrafast",
+                        "-f", "null", "null",
+                    ]
+                else:
+                    command = [
+                        "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+                        "-c:v", hw_decoder, "-i", test_file_path,
+                        "-c:v", "libx264", "-preset", "ultrafast",
+                        "-f", "null", "null",
+                    ]
+                
                 status = "succeeded" if _run_ffmpeg_command(command) else "failed"
                 results[title][res_name] = status
                 
@@ -338,18 +328,23 @@ def run_all_tests():
         return -1
 
     temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect")
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
+    if os.path.exists(temp_dir):
+        # Clear previous run data to ensure a fresh test
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
         
-    _generate_test_files(temp_dir)
-    decoder_results = _run_decoder_tests(temp_dir)
     encoder_results = _run_encoder_tests(temp_dir)
+    decoder_results = _run_decoder_tests(temp_dir)
 
     all_results = {}
-    all_results.update(decoder_results)
     all_results.update(encoder_results)
+    all_results.update(decoder_results)
     
     _print_summary_table(all_results)
+    
+    print("\nCleaning up temporary files...")
+    shutil.rmtree(temp_dir)
+    print("Cleanup complete.")
 
     return all_results
     
