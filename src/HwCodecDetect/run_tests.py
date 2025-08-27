@@ -58,12 +58,15 @@ DECODER_TITLES = {
     ("d3d11va", "mpeg4"): "Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
     ("d3d11va", "vp8"): "Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
     ("d3d11va", "vp9"): "Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
+    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Decoder",
+    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Decoder",
+    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Decoder",
 }
 
 DECODERS = {
-    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va"]},
-    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va"]},
-    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va"]},
+    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va", "h264_vulkan"]},
+    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va", "hevc_vulkan"]},
+    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va", "av1_vulkan"]},
     "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va"]},
     "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va"]},
     "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va"]},
@@ -191,9 +194,9 @@ def _run_decoder_tests(test_dir):
     """
     results = defaultdict(dict)
     
-    GREEN = "\033[92m"
-    RED = "\033[91m"
-    RESET = "\033[0m"
+    GREEN = Fore.GREEN
+    RED = Fore.RED
+    RESET = Style.RESET_ALL
 
     print("\n--- Running Decoder Tests ---")
 
@@ -209,19 +212,19 @@ def _run_decoder_tests(test_dir):
                     print(f"  {res_name}: {RED}skipped due to earlier failure{RESET}")
                     continue
                 file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
-                
+
                 # We need to find *any* existing file for this codec/resolution combo
                 # A simple approach is to check if a file with the correct codec and resolution exists
                 found_file = False
                 test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
-                
+
                 # Try to use any file already generated from encoder tests
                 for filename in os.listdir(test_dir):
                     if filename.startswith(f"{codec}_") and f"_{res_name}" in filename:
                          test_file_path = os.path.join(test_dir, filename)
                          found_file = True
                          break
-                
+
                 # If no file found, generate one using CPU encoder
                 if not found_file:
                     cpu_lib = ALL_CODECS[codec]["lib"]
@@ -237,7 +240,16 @@ def _run_decoder_tests(test_dir):
                          continue
 
                 # Run the actual decoder test
-                if hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8"]:
+                if "vulkan" in hw_decoder:
+                    command = [
+                        "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+                        "-init_hw_device", "vulkan=vk:0",
+                        "-hwaccel", "vulkan",
+                        "-hwaccel_output_format", "vulkan",
+                        "-i", test_file_path,
+                        "-f", "null", "null",
+                    ]
+                elif hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8"]:
                     command = [
                         "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
                         "-hwaccel", hw_decoder, "-i", test_file_path,
@@ -251,13 +263,13 @@ def _run_decoder_tests(test_dir):
                         "-c:v", "libx264", "-preset", "ultrafast",
                         "-f", "null", "null",
                     ]
-                
+
                 status = "succeeded" if _run_ffmpeg_command(command) else "failed"
                 results[title][res_name] = status
 
                 if res_name == "240p" and status == "failed":
                     skip_rest = True
-                
+
                 color_code = GREEN if status == "succeeded" else RED
                 print(f"  {res_name}: {color_code}{status}{RESET}")
 
