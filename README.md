@@ -37,6 +37,7 @@ The script automatically tests and reports on the following major hardware decod
 | AMF (Advanced Media Framework)            | H.264、H.265、AV1                                            |
 | DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
+| Vulkan                                  	| H.264、H.265、AV1                                            |
 
 
 ## How to Use
