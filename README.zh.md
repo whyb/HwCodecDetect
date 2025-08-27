@@ -44,6 +44,6 @@ HwCodecDetect
 ## 效果展示
 下面是本地运行测试的可能的结果：
 
-![decoder test result](imgs/decoder.png)
+![decoder test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/decoder.png)
 
-![encoder test result](imgs/encoder.png)
+![encoder test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/encoder.png)
