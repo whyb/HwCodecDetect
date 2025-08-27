@@ -721,6 +721,59 @@ IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[
 ffmpeg -loglevel quiet -hide_banner -y -c:v d3d11va -i "%directory_path%/vp9_8K.mp4"    -c:v libx264 -preset ultrafast -f null null
 IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
+echo Vulkan Hardware H264 Decoder:
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_240p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_360p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_480p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_720p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_1080p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_2K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_4K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h264_8K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
+
+echo Vulkan Hardware H265 Decoder:
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_240p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_360p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_480p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_720p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_1080p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_2K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_4K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/h265_8K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
+
+echo Vulkan Hardware H264 Decoder:
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_240p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m240p succeeded[0m) ELSE (echo  [91m240p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_360p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m360p succeeded[0m) ELSE (echo  [91m360p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_480p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m480p succeeded[0m) ELSE (echo  [91m480p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_720p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m720p succeeded[0m) ELSE (echo  [91m720p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_1080p.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m1080p succeeded[0m) ELSE (echo  [91m1080p failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_2K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m2K succeeded[0m) ELSE (echo  [91m2K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_4K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m4K succeeded[0m) ELSE (echo  [91m4K failed[0m)
+ffmpeg -loglevel quiet -hide_banner -y -init_hw_device "vulkan=vk:0" -hwaccel vulkan -hwaccel_output_format vulkan -i "%directory_path%/av1_8K.mp4" -f null null
+IF %errorlevel% EQU 0 (echo  [92m8K succeeded[0m) ELSE (echo  [91m8K failed[0m)
 
 rem clean all
 rem for /d %%d in ("%directory_path%\*") do rd /s /q "%%d"
