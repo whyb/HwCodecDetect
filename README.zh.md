@@ -1,4 +1,13 @@
 # FFmpeg 硬件编解码器测试脚本(HwCodecDetect)
+<p align="center">
+    <a href="https://pypi.org/project/hwcodecdetect">
+        <img src="https://badgen.net/pypi/v/hwcodecdetect?color=yellow" />
+    </a>
+    <a href="https://pypi.org/project/hwcodecdetect">
+        <img src="https://static.pepy.tech/badge/hwcodecdetect" />
+    </a>
+</p>
+
 在今天的编解码硬件加速的生态中，视频编解码技术面临着一个“百家争鸣”的局面。为了利用 GPU 的强大算力，各家硬件厂商都推出了自己的加速框架或编码器标准，例如 NVIDIA 的 NVEnc/NVDec、Intel 的 QSV 和 AMD 的 AMF。此外，操作系统层也提供了通用的接口，如微软的 Media Foundation 和 DXAV 、 D3D12VA ，而开源社区则发展了跨平台的 VAAPI 和 Vulkan 等标准。
 
 这种多样性虽然带来了技术上的进步，但也给普通用户和开发者带来了挑战。由于历史遗留和兼容性问题，一个硬件可能支持多种编码器，但它们在性能、支持的格式和分辨率方面都有所不同。因此，在使用 FFmpeg 进行硬件加速时，很难直观地知道哪种编码器最适合自己的设备。

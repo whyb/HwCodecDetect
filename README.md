@@ -1,4 +1,13 @@
 # FFmpeg Hardware Codec Test Script(HwCodecDetect)
+<p align="center">
+    <a href="https://pypi.org/project/hwcodecdetect">
+        <img src="https://badgen.net/pypi/v/hwcodecdetect?color=yellow" />
+    </a>
+    <a href="https://pypi.org/project/hwcodecdetect">
+        <img src="https://static.pepy.tech/badge/hwcodecdetect" />
+    </a>
+</p>
+
 [中文版](https://github.com/whyb/HwCodecDetect/blob/main/README.zh.md)
 
 Today's hardware-accelerated video codec landscape is a "field of a hundred schools of thought." To leverage the immense power of GPUs, hardware manufacturers have introduced their own acceleration frameworks and encoding standards, such as NVIDIA's NVEnc/NVDec, Intel's QSV, and AMD's AMF. Additionally, operating systems provide universal APIs like Microsoft's Media Foundation, DXVA, and D3D12VA, while the open-source community has developed cross-platform standards like VAAPI and Vulkan.
