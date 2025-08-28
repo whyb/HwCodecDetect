@@ -58,9 +58,9 @@ DECODER_TITLES = {
     ("d3d11va", "mpeg4"): "Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
     ("d3d11va", "vp8"): "Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
     ("d3d11va", "vp9"): "Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
-    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Decoder",
-    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Decoder",
-    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Decoder",
+    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
+    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
+    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
 }
 
 DECODERS = {
@@ -98,16 +98,21 @@ ENCODER_TITLES = {
     ("mpeg2_vaapi", "mpeg2"): "Video Acceleration MPEG-2 Encoder(VAAPI)",
     ("vp8_vaapi", "vp8"): "Video Acceleration VP8 Encoder(VAAPI)",
     ("vp9_vaapi", "vp9"): "Video Acceleration VP9 Encoder(VAAPI)",
-    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder",
-    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder",
+    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder(Vulkan)",
+    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
+    ("h264_videotoolbox", "h264"): "MacOS Hardware H264 Encoder(VideoToolbox)",
+    ("hevc_videotoolbox", "h265"): "MacOS Hardware H265 Encoder(VideoToolbox)",
+    ("mpeg2_videotoolbox", "mpeg2"): "MacOS Hardware MPEG-2 Encoder(VideoToolbox)",
+    ("mpeg4_videotoolbox", "mpeg4"): "MacOS Hardware MPEG-4 Encoder(VideoToolbox)",
 }
 
 ENCODERS = {
-    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_vaapi", "h264_vulkan"]},
-    "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_vaapi", "hevc_vulkan"]},
+    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_vaapi", "h264_vulkan", "h264_videotoolbox"]},
+    "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_vaapi", "hevc_vulkan", "hevc_videotoolbox"]},
     "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi"]},
     "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
+    "mpeg4": {"lib": "mpeg4", "hw_encoders": ["mpeg4_videotoolbox"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
     "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
 }
@@ -286,7 +291,8 @@ def _print_summary_table(results):
     """Prints a formatted summary table of all test results."""
     GREEN_CHECK = Fore.GREEN + "✓" + Style.RESET_ALL
     RED_X = Fore.RED + "×" + Style.RESET_ALL
-    GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
+    #GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
+    GRAY_DASH = RED_X
     
     # Get column headers (resolutions) and row headers (decoder titles)
     resolutions = list(RESOLUTIONS.keys())
