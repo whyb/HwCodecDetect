@@ -58,19 +58,23 @@ DECODER_TITLES = {
     ("d3d11va", "mpeg4"): "Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
     ("d3d11va", "vp8"): "Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
     ("d3d11va", "vp9"): "Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
-    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
-    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
-    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
+    ("vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
+    ("vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
+    ("vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
+    ("videotoolbox", "h264"): "MacOS Hardware H264 Decoder(VideoToolbox)",
+    ("videotoolbox", "h265"): "MacOS Hardware H265 Decoder(VideoToolbox)",
+    ("videotoolbox", "mpeg2"): "MacOS Hardware MPEG-2 Decoder(VideoToolbox)",
+    ("videotoolbox", "mpeg4"): "MacOS Hardware MPEG-4 Decoder(VideoToolbox)",
 }
 
 DECODERS = {
-    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va", "h264_vulkan"]},
-    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va", "hevc_vulkan"]},
+    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va", "h264_vulkan", "videotoolbox"]},
+    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va", "hevc_vulkan", "videotoolbox"]},
     "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va", "av1_vulkan"]},
     "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va"]},
     "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va"]},
-    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va"]},
-    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va"]},
+    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va", "videotoolbox"]},
+    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va", "videotoolbox"]},
     "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va"]},
     "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va"]},
 }
@@ -102,8 +106,6 @@ ENCODER_TITLES = {
     ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
     ("h264_videotoolbox", "h264"): "MacOS Hardware H264 Encoder(VideoToolbox)",
     ("hevc_videotoolbox", "h265"): "MacOS Hardware H265 Encoder(VideoToolbox)",
-    ("mpeg2_videotoolbox", "mpeg2"): "MacOS Hardware MPEG-2 Encoder(VideoToolbox)",
-    ("mpeg4_videotoolbox", "mpeg4"): "MacOS Hardware MPEG-4 Encoder(VideoToolbox)",
 }
 
 ENCODERS = {
@@ -112,7 +114,6 @@ ENCODERS = {
     "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi"]},
     "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
-    "mpeg4": {"lib": "mpeg4", "hw_encoders": ["mpeg4_videotoolbox"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
     "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
 }
@@ -251,6 +252,13 @@ def _run_decoder_tests(test_dir):
                         "-init_hw_device", "vulkan=vk:0",
                         "-hwaccel", "vulkan",
                         "-hwaccel_output_format", "vulkan",
+                        "-i", test_file_path,
+                        "-f", "null", "null",
+                    ]
+                elif "videotoolbox" in hw_decoder:
+                    command = [
+                        "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+                        "-hwaccel", "videotoolbox",
                         "-i", test_file_path,
                         "-f", "null", "null",
                     ]
