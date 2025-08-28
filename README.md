@@ -27,6 +27,7 @@ The script automatically tests and reports on the following major hardware encod
 | Media Foundation               	| H.264、H.265                               |
 | VAAPI (Video Acceleration API) 	| H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
 | Vulkan                         	| H.264、H.265                               |
+| Apple VideoToolbox               	| H.264、H.265                               |
 
 ### Decoders
 The script automatically tests and reports on the following major hardware decoders and their supported formats:
@@ -38,6 +39,7 @@ The script automatically tests and reports on the following major hardware decod
 | DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 | Vulkan                                  	| H.264、H.265、AV1                                            |
+| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4                                 |
 
 
 ## How to Use

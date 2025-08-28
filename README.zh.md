@@ -25,6 +25,7 @@
 | Media Foundation               	| H.264、H.265                               |
 | VAAPI (Video Acceleration API) 	| H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
 | Vulkan                         	| H.264、H.265                               |
+| Apple VideoToolbox               	| H.264、H.265                               |
 
 ### 解码器
 脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
@@ -36,6 +37,7 @@
 | DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 | Vulkan                                  	| H.264、H.265、AV1                                            |
+| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4                                 |
 
 
 ## 如何使用
