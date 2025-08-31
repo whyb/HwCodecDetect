@@ -19,15 +19,16 @@ This project was created to solve this very problem. It's a convenient tool for 
 ## Key Features
 ### Encoders
 The script automatically tests and reports on the following major hardware encoders and their supported formats:
-| Encoder Name                   	 | Supported Video Formats                   |
-|-----------------------------------|------------------------------------------- |
-| NVEnc                          	| H.264、H.265、AV1                          |
-| QSV (Quick Sync Video)         	| H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
-| AMF (Advanced Media Framework)    | H.264、H.265、AV1                          |
-| Media Foundation               	| H.264、H.265                               |
-| VAAPI (Video Acceleration API) 	| H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
-| Vulkan                         	| H.264、H.265                               |
-| Apple VideoToolbox               	| H.264、H.265                               |
+| Encoder Name                   	       | Supported Video Formats                   |
+|------------------------------------------|------------------------------------------- |
+| NVEnc                          	       | H.264、H.265、AV1                          |
+| QSV (Quick Sync Video)         	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
+| AMF (Advanced Media Framework)           | H.264、H.265、AV1                          |
+| Media Foundation               	       | H.264、H.265                               |
+| D3D12VA (Direct3D 12 Video Acceleration) | H.265                                      |
+| VAAPI (Video Acceleration API) 	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
+| Vulkan                         	       | H.264、H.265                               |
+| Apple VideoToolbox               	       | H.264、H.265                               |
 
 ### Decoders
 The script automatically tests and reports on the following major hardware decoders and their supported formats:

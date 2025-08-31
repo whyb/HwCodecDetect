@@ -17,15 +17,16 @@
 ## 主要功能
 ### 编码器
 脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
-| 编码器名称                     	 | 支持的视频编码格式                           |
-|-----------------------------------|------------------------------------------- |
-| NVEnc                          	| H.264、H.265、AV1                          |
-| QSV (Quick Sync Video)         	| H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
-| AMF (Advanced Media Framework)    | H.264、H.265、AV1                          |
-| Media Foundation               	| H.264、H.265                               |
-| VAAPI (Video Acceleration API) 	| H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
-| Vulkan                         	| H.264、H.265                               |
-| Apple VideoToolbox               	| H.264、H.265                               |
+| 编码器名称                     	        | 支持的视频编码格式                           |
+|------------------------------------------|------------------------------------------- |
+| NVEnc                          	       | H.264、H.265、AV1                          |
+| QSV (Quick Sync Video)         	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP9       |
+| AMF (Advanced Media Framework)           | H.264、H.265、AV1                          |
+| Media Foundation               	       | H.264、H.265                               |
+| D3D12VA (Direct3D 12 Video Acceleration) | H.265                                      |
+| VAAPI (Video Acceleration API) 	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
+| Vulkan                         	       | H.264、H.265                               |
+| Apple VideoToolbox               	       | H.264、H.265                               |
 
 ### 解码器
 脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
