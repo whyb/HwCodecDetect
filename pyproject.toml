@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HwCodecDetect"
-version = "0.0.8"
+version = "0.0.9"
 authors = [
   { name="whyb", email="whyber@outlook.com" },
 ]
@@ -16,7 +16,8 @@ license-files = [
     "LICENSE",
 ]
 dependencies = [
-    "colorama"
+    "colorama",
+    "tqdm"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

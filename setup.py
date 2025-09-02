@@ -32,7 +32,7 @@ setup(
         "Topic :: Utilities",
     ],
     python_requires=">=3.8",
-    install_requires=["colorama"],
+    install_requires=["colorama", "tqdm"],
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     entry_points={
