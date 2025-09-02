@@ -37,7 +37,7 @@ setup(
     package_dir={"": "src"},
     entry_points={
         "console_scripts": [
-            "hwcodecdetect=HwCodecDetect.run_tests:run_all_tests"
+            "hwcodecdetect=HwCodecDetect.run_tests:main"
         ]
     },
     include_package_data=True,

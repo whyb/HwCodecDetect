@@ -44,17 +44,38 @@ The script automatically tests and reports on the following major hardware decod
 
 
 ## How to Use
+You can install and use HwCodecDetect in two ways.
+### Method 1: Install via PyPI (Recommended)
+This is the easiest method if you just want to use the tool quickly.
 
-### 1. Install via PyPI
-```bash
-pip install HwCodecDetect
-```
+1. Install: Use pip to install HwCodecDetect from the official PyPI repository.
+    ```bash
+    pip install HwCodecDetect
+    ```
 
-### 2. Run the Test
-```bash
-HwCodecDetect
-```
+2. Run: After installation, run the HwCodecDetect command directly from your terminal.
+    ```bash
+    HwCodecDetect
+    ```
 
+### Method 2: Install from Source
+Use this method if you have cloned the project source code from GitHub and want to run it locally.
+
+1. Clone the repository: First, clone the project source code to your local machine.
+    ```bash
+    git clone https://github.com/whyb/HwCodecDetect.git
+    ```
+
+2. Install dependencies: Navigate into the project's root directory and use pip to install the required dependencies.
+    ```bash
+    cd HwCodecDetect
+    pip install .
+    ```
+
+3. Run: After the installation is complete, run the HwCodecDetect command directly.
+    ```bash
+    HwCodecDetect
+    ```
 
 ## Demo
 Here are some possible results from a local test run:
