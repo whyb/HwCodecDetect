@@ -72,7 +72,4 @@
 
 ## 效果展示
 下面是本地运行测试的可能的结果：
-
-![decoder test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/decoder.png)
-
-![encoder test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/encoder.png)
+![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/run_tests.png)
