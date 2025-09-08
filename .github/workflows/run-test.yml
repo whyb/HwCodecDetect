@@ -48,6 +48,13 @@ jobs:
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
+    - name: Install FFmpeg
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y snapd
+        sudo snap install ffmpeg
+        ffmpeg -version
+
     - name: Upgrade pip
       run: python -m pip install --upgrade pip
       working-directory: HwCodecDetect
@@ -74,6 +81,12 @@ jobs:
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
+    - name: Install FFmpeg
+      run: |
+        brew update
+        brew install ffmpeg
+        ffmpeg -version
 
     - name: Upgrade pip
       run: python -m pip install --upgrade pip
