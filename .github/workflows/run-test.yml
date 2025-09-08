@@ -12,7 +12,10 @@ jobs:
 
     defaults:
       run:
-        shell: cmd
+        shell: pwsh
+
+    env:
+        PYTHONIOENCODING: utf-8
 
     steps:
     - name: Clone HwCodecDetect
@@ -27,7 +30,5 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: |
-        chcp 65001
-        python -m src.HwCodecDetect.run_tests
+      run: python -m src.HwCodecDetect.run_tests
       working-directory: HwCodecDetect
