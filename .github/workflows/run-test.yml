@@ -1,4 +1,4 @@
-name: Windows CI for HwCodecDetect
+name: Run CI
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
         shell: pwsh
 
     env:
-        PYTHONIOENCODING: utf-8
+      PYTHONIOENCODING: utf-8
 
     steps:
     - name: Clone HwCodecDetect
@@ -30,5 +30,77 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
+      working-directory: HwCodecDetect
+
+  test-on-ubuntu:
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+
+    steps:
+    - name: Install Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install latest FFmpeg (static build)
+      run: |
+        set -e
+        sudo apt-get update
+        sudo apt-get install -y xz-utils ca-certificates
+        curl -L -o ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+        tar -xJf ffmpeg.tar.xz
+        FF_DIR=$(find . -maxdepth 1 -type d -name "ffmpeg-*-amd64-static" | head -n1)
+        sudo mv "$FF_DIR/ffmpeg" "$FF_DIR/ffprobe" /usr/local/bin/
+        ffmpeg -version
+        ffprobe -version
+
+    - name: Clone HwCodecDetect
+      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+      working-directory: HwCodecDetect
+
+    - name: Install dependencies
+      run: python -m pip install -r requirements.txt
+      working-directory: HwCodecDetect
+
+    - name: Run tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
+      working-directory: HwCodecDetect
+
+  test-on-macos:
+    runs-on: macos-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+
+    steps:
+    - name: Install Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install FFmpeg
+      run: |
+        brew update
+        brew install ffmpeg
+        ffmpeg -version
+
+    - name: Clone HwCodecDetect
+      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+      working-directory: HwCodecDetect
+
+    - name: Install dependencies
+      run: python -m pip install -r requirements.txt
+      working-directory: HwCodecDetect
+
+    - name: Run tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
