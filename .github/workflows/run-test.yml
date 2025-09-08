@@ -1,4 +1,4 @@
-name: Windows CI for HwCodecDetect
+name: Run CI
 
 on:
   push:
@@ -15,9 +15,63 @@ jobs:
         shell: pwsh
 
     env:
-        PYTHONIOENCODING: utf-8
+      PYTHONIOENCODING: utf-8
 
     steps:
+    - name: Clone HwCodecDetect
+      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+      working-directory: HwCodecDetect
+
+    - name: Install dependencies
+      run: python -m pip install -r requirements.txt
+      working-directory: HwCodecDetect
+
+    - name: Run tests
+      run: python -m src.HwCodecDetect.run_tests
+      working-directory: HwCodecDetect
+
+  test-on-ubuntu:
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+
+    steps:
+    - name: Install Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Clone HwCodecDetect
+      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+      working-directory: HwCodecDetect
+
+    - name: Install dependencies
+      run: python -m pip install -r requirements.txt
+      working-directory: HwCodecDetect
+
+    - name: Run tests
+      run: python -m src.HwCodecDetect.run_tests
+      working-directory: HwCodecDetect
+
+  test-on-macos:
+    runs-on: macos-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+
+    steps:
+    - name: Install Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
