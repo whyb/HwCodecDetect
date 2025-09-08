@@ -1,5 +1,8 @@
 # FFmpeg Hardware Codec Test Script(HwCodecDetect)
 <p align="center">
+    <a href="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml">
+        <img src="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml/badge.svg" />
+    </a>
     <a href="https://pypi.org/project/hwcodecdetect">
         <img src="https://badgen.net/pypi/v/hwcodecdetect?color=yellow" />
     </a>
