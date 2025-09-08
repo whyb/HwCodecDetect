@@ -30,7 +30,7 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-ubuntu:
@@ -64,7 +64,7 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-macos:
@@ -97,5 +97,5 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests
+      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
