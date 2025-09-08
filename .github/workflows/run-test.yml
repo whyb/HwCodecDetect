@@ -12,7 +12,7 @@ jobs:
 
     defaults:
       run:
-        shell: bash
+        shell: cmd
 
     steps:
     - name: Clone HwCodecDetect
