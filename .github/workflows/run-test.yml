@@ -27,5 +27,7 @@ jobs:
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests
+      run: |
+        chcp 65001
+        python -m src.HwCodecDetect.run_tests
       working-directory: HwCodecDetect
