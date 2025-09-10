@@ -75,31 +75,30 @@ jobs:
   test-on-archlinux:
     runs-on: ubuntu-latest
 
-    env:
-      PYTHONIOENCODING: utf-8
-
     container:
       image: archlinux:latest
+
+    env:
+      PYTHONIOENCODING: utf-8
 
     steps:
     - name: Update system and install dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm python python-pip git ffmpeg
+        pacman -S --noconfirm python python-pip python-pipx git ffmpeg
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
-    - name: Upgrade pip
-      run: python -m pip install --upgrade pip
-      working-directory: HwCodecDetect
-
-    - name: Install dependencies
-      run: python -m pip install -r requirements.txt
+    - name: Install project with pipx
+      run: |
+        pipx ensurepath
+        pipx install .
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
+      run: |
+        pipx run python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-macos:
