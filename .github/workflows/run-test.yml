@@ -98,7 +98,7 @@ jobs:
 
     - name: Run tests
       run: |
-        pipx run python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
+        pipx run HwCodecDetect --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-macos:
