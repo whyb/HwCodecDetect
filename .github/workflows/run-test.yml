@@ -85,20 +85,20 @@ jobs:
     - name: Update system and install dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm python python-pip python-pipx git ffmpeg
+        pacman -S --noconfirm python python-pip git ffmpeg
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
-    - name: Install project with pipx
+    - name: Install project dependencies
       run: |
-        pipx ensurepath
-        pipx install .
+        pip install --upgrade pip
+        pip install -e .
       working-directory: HwCodecDetect
 
     - name: Run tests
       run: |
-        pipx run HwCodecDetect --encoder-count 8 --decoder-count 8
+        python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-macos:
