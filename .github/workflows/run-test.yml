@@ -90,14 +90,17 @@ jobs:
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
-    - name: Install project dependencies
+    - name: Create virtualenv and install project
       run: |
+        python -m venv .venv
+        source .venv/bin/activate
         pip install --upgrade pip
         pip install -e .
       working-directory: HwCodecDetect
 
     - name: Run tests
       run: |
+        source .venv/bin/activate
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
