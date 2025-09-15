@@ -13,7 +13,7 @@
 
 [中文版](https://github.com/whyb/HwCodecDetect/blob/main/README.zh.md)
 
-Today's hardware-accelerated video codec landscape is a "field of a hundred schools of thought." To leverage the immense power of GPUs, hardware manufacturers have introduced their own acceleration frameworks and encoding standards, such as NVIDIA's NVEnc/NVDec, Intel's QSV, and AMD's AMF. Additionally, operating systems provide universal APIs like Microsoft's Media Foundation, DXVA, and D3D12VA, while the open-source community has developed cross-platform standards like VAAPI and Vulkan.
+Today's hardware-accelerated video codec landscape is a "field of a hundred schools of thought." To leverage the immense power of GPUs, hardware manufacturers have introduced their own acceleration frameworks and encoding standards, such as NVIDIA's NVEnc/NVDec, Intel's QSV, and AMD's AMF. Additionally, operating systems provide universal APIs like Microsoft's Media Foundation, DXVA2, and D3D12VA, while the open-source community has developed cross-platform standards like VAAPI and Vulkan.
 
 While this diversity drives technological progress, it also presents a challenge for users and developers. Due to historical issues and compatibility quirks, a single piece of hardware might support multiple encoders, but they can differ significantly in performance, supported formats, and resolutions. As a result, when using FFmpeg for hardware acceleration, it's not always clear which encoder is best suited for a specific device.
 
