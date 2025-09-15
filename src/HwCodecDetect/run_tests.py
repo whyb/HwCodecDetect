@@ -134,22 +134,27 @@ ALL_CODECS = {
 CONCURRENT_ENCODER_COUNT = 8
 CONCURRENT_DECODER_COUNT = 16
 
-def _run_ffmpeg_command(command):
+def _run_ffmpeg_command(command, verbose):
     """Executes an FFmpeg command and returns True on success, False on failure."""
     try:
+        stdout = subprocess.PIPE if verbose else subprocess.DEVNULL
+        stderr = subprocess.PIPE if verbose else subprocess.DEVNULL
         result = subprocess.run(
             command,
             check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=stdout,
+            stderr=stderr,
+            text=True
         )
-        return result.returncode == 0
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+        return (result.returncode == 0, result.stdout, result.stderr)
+    except subprocess.CalledProcessError as e:
+        return (False, e.stdout, e.stderr)
+    except FileNotFoundError:
+        return (False, "", "FFmpeg executable not found")
 
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
-    codec, encoder, res_name, res_size, test_dir = test_data
+    codec, encoder, res_name, res_size, test_dir, verbose = test_data
     file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
 
@@ -170,11 +175,24 @@ def _run_encoder_test_single(test_data):
         command.insert(9, "-dual_gfx")
         command.insert(10, "0")
 
-    status = "succeeded" if _run_ffmpeg_command(command) else "failed"
+    if verbose: # if verbose then replace loglevel to verbose
+        command[2] = "error"
+
+    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    status = "succeeded" if success else "failed"
+
+    if verbose:
+        if stdout:
+            print(f"Output:\n{stdout}")
+        if stderr:
+            print(f"Error Output:\n{stderr}")
+        print(f"Test Result: {status}")
+
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     return title, res_name, status
 
-def _run_encoder_tests(test_dir, max_workers):
+
+def _run_encoder_tests(test_dir, max_workers, verbose):
     """Runs hardware encoder tests using a thread pool."""
     results = defaultdict(dict)
     
@@ -184,7 +202,7 @@ def _run_encoder_tests(test_dir, max_workers):
     for codec, info in ENCODERS.items():
         for encoder in info['hw_encoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, encoder, res_name, res_size, test_dir))
+                tasks.append((codec, encoder, res_name, res_size, test_dir, verbose))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_run_encoder_test_single, task) for task in tasks]
@@ -197,7 +215,7 @@ def _run_encoder_tests(test_dir, max_workers):
 
 def _run_decoder_test_single(test_data):
     """Runs a single decoder test and returns the result."""
-    codec, hw_decoder, res_name, res_size, test_dir = test_data
+    codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
     file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
@@ -216,7 +234,7 @@ def _run_decoder_test_single(test_data):
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
         ]
-        if not _run_ffmpeg_command(command):
+        if not _run_ffmpeg_command(command, verbose):
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, res_name, "skipped"
 
@@ -250,13 +268,25 @@ def _run_decoder_test_single(test_data):
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
-    
-    status = "succeeded" if _run_ffmpeg_command(command) else "failed"
+
+    if verbose: # if verbose then replace loglevel to verbose
+        command[2] = "error"
+
+    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    status = "succeeded" if success else "failed"
+
+    if verbose:
+        if stdout:
+            print(f"Output:\n{stdout}")
+        if stderr:
+            print(f"Error Output:\n{stderr}")
+        print(f"Test Result: {status}")
+
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     return title, res_name, status
 
 
-def _run_decoder_tests(test_dir, max_workers):
+def _run_decoder_tests(test_dir, max_workers, verbose):
     """Runs hardware decoder tests using a thread pool."""
     results = defaultdict(dict)
 
@@ -266,8 +296,8 @@ def _run_decoder_tests(test_dir, max_workers):
     for codec, info in DECODERS.items():
         for hw_decoder in info['hw_decoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, hw_decoder, res_name, res_size, test_dir))
-    
+                tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose))
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_run_decoder_test_single, task) for task in tasks]
 
@@ -297,7 +327,7 @@ def _print_summary_table(results):
 
     res_width = max(len(res) for res in resolutions)
     row_header_width = max([_get_display_width(t) for t in results.keys()] + [20, _get_display_width("Decoder"), _get_display_width("Encoder")])
-    
+
     if decoder_titles:
         print("\n" + "-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
         header_text = "Decoder"
@@ -308,7 +338,7 @@ def _print_summary_table(results):
             header_row += f" {res.center(res_width)} |"
         print(header_row)
         print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
-        
+
         for title in decoder_titles:
             padding_needed = row_header_width - _get_display_width(title)
             row_string = f"| {title}{' ' * padding_needed} |"
@@ -332,7 +362,7 @@ def _print_summary_table(results):
             header_row += f" {res.center(res_width)} |"
         print(header_row)
         print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
-        
+
         for title in encoder_titles:
             padding_needed = row_header_width - _get_display_width(title)
             row_string = f"| {title}{' ' * padding_needed} |"
@@ -361,8 +391,8 @@ def run_all_tests(args):
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir)
         
-    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count)
-    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count)
+    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose)
+    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose)
 
     all_results = {}
     all_results.update(encoder_results)
@@ -422,6 +452,12 @@ def main():
         action="version", 
         version=f"HwCodecDetect v{version_str}",
         help="Show program's version number and exit."
+    )
+
+    parser.add_argument(
+        '--verbose', 
+        action='store_true', 
+        help='Print detailed information for each test'
     )
 
     args = parser.parse_args()
