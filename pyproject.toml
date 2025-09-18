@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HwCodecDetect"
-version = "0.1.0"
 authors = [
   { name="whyb", email="whyber@outlook.com" },
 ]
@@ -15,10 +14,7 @@ license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
 ]
-dependencies = [
-    "colorama",
-    "tqdm"
-]
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -26,6 +22,7 @@ classifiers = [
     "Topic :: System :: Installation/Setup",
     "Topic :: Utilities",
 ]
+dynamic = ["version", "dependencies"]
 
 [project.scripts]
 hwcodecdetect = "HwCodecDetect.run_tests:main"
@@ -33,3 +30,7 @@ hwcodecdetect = "HwCodecDetect.run_tests:main"
 [project.urls]
 Homepage = "https://github.com/whyb/HwCodecDetect"
 Issues = "https://github.com/whyb/HwCodecDetect/issues"
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION"]}
+dependencies = {file = ["requirements.txt"]}
