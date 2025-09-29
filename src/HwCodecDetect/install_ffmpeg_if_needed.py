@@ -138,24 +138,48 @@ def install_on_linux():
         return -1
 
 def install_on_macos():
-    """
-    Installs FFmpeg using Homebrew for macOS.
-    """
-    print("FFmpeg not found. Attempting to install via Homebrew...")
+    print("FFmpeg not found. Attempting to install for macOS...")
 
-    if not shutil.which("brew"):
-        print("Homebrew not found. Please install Homebrew first by running:", file=sys.stderr)
-        print('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"', file=sys.stderr)
-        return -1
+    # Try Homebrew
+    if shutil.which("brew"):
+        try:
+            subprocess.run(["brew", "install", "ffmpeg"], check=True)
+            print("FFmpeg installation complete via Homebrew.")
+            return 0
+        except subprocess.CalledProcessError:
+            print("Homebrew installation failed. Trying next method.", file=sys.stderr)
 
-    try:
-        print("Attempting to install FFmpeg using brew...")
-        subprocess.run(["brew", "install", "ffmpeg"], check=True)
-        print("FFmpeg installation complete.")
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Error installing FFmpeg with Homebrew: {e}", file=sys.stderr)
-        return -1
+    # Try MacPorts
+    if shutil.which("port"):
+        try:
+            subprocess.run(["sudo", "port", "install", "ffmpeg"], check=True)
+            print("FFmpeg installation complete via MacPorts.")
+            return 0
+        except subprocess.CalledProcessError:
+            print("MacPorts installation failed. Trying next method.", file=sys.stderr)
+
+    # Try Conda
+    if shutil.which("conda"):
+        try:
+            subprocess.run(["conda", "install", "-c", "conda-forge", "ffmpeg", "-y"], check=True)
+            print("FFmpeg installation complete via Conda.")
+            return 0
+        except subprocess.CalledProcessError:
+            print("Conda installation failed. Trying next method.", file=sys.stderr)
+
+    # Try Nix
+    if shutil.which("nix-env"):
+        try:
+            subprocess.run(["nix-env", "-iA", "nixpkgs.ffmpeg"], check=True)
+            print("FFmpeg installation complete via Nix.")
+            return 0
+        except subprocess.CalledProcessError:
+            print("Nix installation failed. Trying next method.", file=sys.stderr)
+
+    # Manual fallback
+    print("All package manager installations failed. Please install FFmpeg manually from https://ffmpeg.org/download.html", file=sys.stderr)
+    return -1
+
 
 def get_linux_distro():
     """
