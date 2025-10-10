@@ -108,25 +108,34 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:latest
+
+    defaults:
+      run:
+        shell: bash
+
     env:
       PYTHONIOENCODING: utf-8
+
     steps:
     - name: Install dependencies
       run: |
         apt-get update
-        apt-get install -y python3 python3-pip git ffmpeg python3-venv
+        apt-get install -y bash python3 python3-pip git ffmpeg python3-venv
+
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
     - name: Create virtualenv and install project
       run: |
         python3 -m venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         pip install --upgrade pip
         pip install -e .
       working-directory: HwCodecDetect
+
     - name: Run tests
       run: |
-        source .venv/bin/activate
+        . .venv/bin/activate
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
@@ -184,7 +193,7 @@ jobs:
   test-on-centos:
     runs-on: ubuntu-latest
     container:
-      image: centos:latest
+      image: quay.io/centos/centos:stream9
     env:
       PYTHONIOENCODING: utf-8
     steps:
@@ -209,7 +218,7 @@ jobs:
   test-on-opensuse:
     runs-on: ubuntu-latest
     container:
-      image: opensuse/leap
+      image: registry.opensuse.org/home:jayvdb:branches:python/python:3.10
     env:
       PYTHONIOENCODING: utf-8
     steps:
