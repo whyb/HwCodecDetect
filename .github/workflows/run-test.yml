@@ -26,9 +26,10 @@ jobs:
         & "C:\Program Files\7-Zip\7z.exe" x "ffmpeg.7z" -o"$ffmpegDir" -y
         $binPath = Get-ChildItem "$ffmpegDir" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
         $ffmpegBin = "$ffmpegDir\$($binPath.Name)\bin"
-        $env:Path = "$ffmpegBin;$env:Path"
+        echo "FFMPEG_BIN=$ffmpegBin" >> $env:GITHUB_ENV
+        echo "PATH=$ffmpegBin;$env:PATH" >> $env:GITHUB_ENV
         Write-Host "FFmpeg path: $ffmpegBin"
-        ffmpeg -version
+        & "$ffmpegBin\ffmpeg.exe" -version
       shell: pwsh
 
     - name: Clone HwCodecDetect
@@ -218,7 +219,7 @@ jobs:
     steps:
     - name: Install basic tools and Python
       run: |
-        dnf install -y curl tar xz python3 python3-pip git
+        dnf install -y curl tar xz python3 python3-pip git --allowerasing
 
     - name: Install latest FFmpeg (static build)
       run: |
@@ -260,7 +261,7 @@ jobs:
     - name: Install Python 3.10 and dependencies
       run: |
         zypper refresh
-        zypper install -y python310 git ffmpeg-full-extra
+        zypper install -y python310 git ffmpeg
         python3.10 -m ensurepip
         ln -s /usr/bin/python3.10 /usr/local/bin/python3
         ln -s /usr/lib/python3.10/site-packages/pip /usr/local/bin/pip || true
