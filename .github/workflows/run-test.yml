@@ -190,54 +190,71 @@ jobs:
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
-  test-on-centos:
+  test-on-rockylinux-like-centos:
     runs-on: ubuntu-latest
     container:
-      image: quay.io/centos/centos:stream9
+      image: rockylinux/rockylinux:9
+
+    defaults:
+      run:
+        shell: bash
+
     env:
       PYTHONIOENCODING: utf-8
+
     steps:
     - name: Install dependencies
       run: |
-        yum install -y python3 python3-pip git ffmpeg python3-virtualenv
+        dnf install -y python3 python3-pip git ffmpeg python3-virtualenv
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
     - name: Create virtualenv and install project
       run: |
         python3 -m venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         pip install --upgrade pip
         pip install -e .
       working-directory: HwCodecDetect
     - name: Run tests
       run: |
-        source .venv/bin/activate
+        . .venv/bin/activate
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
   test-on-opensuse:
     runs-on: ubuntu-latest
     container:
-      image: registry.opensuse.org/home:jayvdb:branches:python/python:3.10
+      image: opensuse/leap:15.5
+
+    defaults:
+      run:
+        shell: bash
+
     env:
       PYTHONIOENCODING: utf-8
+
     steps:
-    - name: Install dependencies
+    - name: Install Python 3.10 and dependencies
       run: |
         zypper refresh
-        zypper install -y python3 python3-pip git ffmpeg python3-virtualenv
+        zypper install -y python310 python310-pip git ffmpeg python310-virtualenv
+        ln -s /usr/bin/python3.10 /usr/local/bin/python3
+        ln -s /usr/bin/pip3.10 /usr/local/bin/pip
+
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
     - name: Create virtualenv and install project
       run: |
         python3 -m venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         pip install --upgrade pip
         pip install -e .
       working-directory: HwCodecDetect
+
     - name: Run tests
       run: |
-        source .venv/bin/activate
+        . .venv/bin/activate
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
@@ -245,25 +262,38 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: voidlinux/voidlinux
+
+    defaults:
+      run:
+        shell: bash
+
     env:
       PYTHONIOENCODING: utf-8
+
     steps:
+    - name: Fix Void repo SSL issue
+      run: |
+        sed -i 's|https://.*.voidlinux.org|https://repo-default.voidlinux.org|g' /etc/xbps.d/*-repository.conf
+
     - name: Install dependencies
       run: |
         xbps-install -Syu
         xbps-install -y python3 python3-pip git ffmpeg python3-virtualenv
+
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+
     - name: Create virtualenv and install project
       run: |
         python3 -m venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         pip install --upgrade pip
         pip install -e .
       working-directory: HwCodecDetect
+
     - name: Run tests
       run: |
-        source .venv/bin/activate
+        . .venv/bin/activate
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8
       working-directory: HwCodecDetect
 
