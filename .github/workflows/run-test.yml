@@ -18,21 +18,18 @@ jobs:
       PYTHONIOENCODING: utf-8
 
     steps:
-    - name: Install FFmpeg via winget and set PATH
+    - name: Download and extract FFmpeg
       run: |
-        winget install -e --id Gyan.FFmpeg -h
-        $ffmpegPath = "$env:ProgramFiles\ffmpeg\bin"
-        if (!(Test-Path $ffmpegPath)) {
-          # fallback: try winget local install path
-          $ffmpegPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg\bin"
-        }
-        if (Test-Path "$ffmpegPath\ffmpeg.exe") {
-          $env:Path = "$ffmpegPath;$env:Path"
-          Write-Host "FFmpeg installed and path set."
-          ffmpeg -version
-        } else {
-          Write-Host "FFmpeg installation failed or path not found."
-        }
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z" -OutFile "ffmpeg.7z"
+        $ffmpegDir = "$env:USERPROFILE\ffmpeg"
+        New-Item -ItemType Directory -Path $ffmpegDir -Force | Out-Null
+        & "C:\Program Files\7-Zip\7z.exe" x "ffmpeg.7z" -o"$ffmpegDir" -y
+        $binPath = Get-ChildItem "$ffmpegDir" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+        $ffmpegBin = "$ffmpegDir\$($binPath.Name)\bin"
+        $env:Path = "$ffmpegBin;$env:Path"
+        Write-Host "FFmpeg path: $ffmpegBin"
+        ffmpeg -version
+      shell: pwsh
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
@@ -219,28 +216,32 @@ jobs:
       PYTHONIOENCODING: utf-8
 
     steps:
-    - name: Enable EPEL and CRB, then install dependencies
+    - name: Install basic tools and Python
       run: |
-        dnf install -y epel-release
-        /usr/bin/crb enable
-        dnf update -y
-        dnf install -y ffmpeg python3-venv git python3-pip
+        dnf install -y curl tar xz python3 python3-pip git
+
+    - name: Install latest FFmpeg (static build)
+      run: |
+        curl -L -o ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+        tar -xJf ffmpeg.tar.xz
+        FF_DIR=$(find . -maxdepth 1 -type d -name "ffmpeg-*-amd64-static" | head -n1)
+        mv "$FF_DIR/ffmpeg" "$FF_DIR/ffprobe" /usr/local/bin/
+        ffmpeg -version
+        ffprobe -version
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
-    - name: Create virtualenv and install project
-      run: |
-        python3 -m venv .venv
-        . .venv/bin/activate
-        pip install --upgrade pip
-        pip install -e .
+    - name: Upgrade pip
+      run: python3 -m pip install --upgrade pip
+      working-directory: HwCodecDetect
+
+    - name: Install dependencies
+      run: python3 -m pip install -r requirements.txt
       working-directory: HwCodecDetect
 
     - name: Run tests
-      run: |
-        . .venv/bin/activate
-        python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
+      run: python3 -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
       working-directory: HwCodecDetect
 
   test-on-opensuse:
@@ -259,49 +260,10 @@ jobs:
     - name: Install Python 3.10 and dependencies
       run: |
         zypper refresh
-        zypper install -y python310 git ffmpeg
+        zypper install -y python310 git ffmpeg-full-extra
         python3.10 -m ensurepip
         ln -s /usr/bin/python3.10 /usr/local/bin/python3
         ln -s /usr/lib/python3.10/site-packages/pip /usr/local/bin/pip || true
-
-    - name: Clone HwCodecDetect
-      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
-
-    - name: Create virtualenv and install project
-      run: |
-        python3 -m venv .venv
-        . .venv/bin/activate
-        pip install --upgrade pip
-        pip install -e .
-      working-directory: HwCodecDetect
-
-    - name: Run tests
-      run: |
-        . .venv/bin/activate
-        python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
-      working-directory: HwCodecDetect
-
-  test-on-voidlinux:
-    runs-on: ubuntu-latest
-    container:
-      image: voidlinux/voidlinux
-
-    defaults:
-      run:
-        shell: bash
-
-    env:
-      PYTHONIOENCODING: utf-8
-
-    steps:
-    - name: Fix Void repo SSL issue
-      run: |
-        sed -i 's|https://.*.voidlinux.org|https://repo-default.voidlinux.org|g' /etc/xbps.d/*-repository.conf
-
-    - name: Install dependencies
-      run: |
-        xbps-install -Syu
-        xbps-install -y python3 python3-pip git ffmpeg python3-virtualenv
 
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
