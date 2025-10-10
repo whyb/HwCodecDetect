@@ -18,6 +18,22 @@ jobs:
       PYTHONIOENCODING: utf-8
 
     steps:
+    - name: Install FFmpeg via winget and set PATH
+      run: |
+        winget install -e --id Gyan.FFmpeg -h
+        $ffmpegPath = "$env:ProgramFiles\ffmpeg\bin"
+        if (!(Test-Path $ffmpegPath)) {
+          # fallback: try winget local install path
+          $ffmpegPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg\bin"
+        }
+        if (Test-Path "$ffmpegPath\ffmpeg.exe") {
+          $env:Path = "$ffmpegPath;$env:Path"
+          Write-Host "FFmpeg installed and path set."
+          ffmpeg -version
+        } else {
+          Write-Host "FFmpeg installation failed or path not found."
+        }
+
     - name: Clone HwCodecDetect
       run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
 
@@ -203,9 +219,11 @@ jobs:
       PYTHONIOENCODING: utf-8
 
     steps:
-    - name: Enable EPEL and install dependencies
+    - name: Enable EPEL and CRB, then install dependencies
       run: |
         dnf install -y epel-release
+        /usr/bin/crb enable
+        dnf update -y
         dnf install -y ffmpeg python3-venv git python3-pip
 
     - name: Clone HwCodecDetect
