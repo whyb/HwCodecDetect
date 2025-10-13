@@ -203,7 +203,7 @@ def _run_encoder_test_single(test_data):
 
 [Command Log]
 {command_log}
-==================================================
+
 """.strip()
         print(log_message)
 
@@ -295,7 +295,7 @@ def _run_decoder_test_single(test_data):
     status = "succeeded" if success else "failed"
 
     if verbose:
-        info_str = f"codec: {codec}, decoder: {hw_decoder}, resolution: {res_size}"
+        info_str = f"codec: {codec}, decoder: {hw_decoder}, resolution: {res_size}, status: {status}"
         command_str = " ".join(shlex.quote(arg) for arg in command)
         if stdout.strip() and stderr.strip():
             command_log = f"{stdout.strip()}\n{stderr.strip()}"
@@ -310,15 +310,12 @@ def _run_decoder_test_single(test_data):
 [Decoder Detect Info]
 {info_str}
 
-[Status]
-{status}
-
 [FFmpeg Command]
 {command_str}
 
 [Command Log]
 {command_log}
-==================================================
+
 """.strip()
         print(log_message)
 
