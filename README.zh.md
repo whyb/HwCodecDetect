@@ -1,4 +1,4 @@
-# FFmpeg 硬件编解码器测试脚本(HwCodecDetect)
+# FFmpeg 硬件编解码器检测脚本(HwCodecDetect)
 <p align="center">
     <a href="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml">
         <img src="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml/badge.svg" />
@@ -19,7 +19,7 @@
 
 ## 主要功能
 ### 编码器
-脚本会自动测试并报告以下主流硬件编码器及其支持的格式：
+脚本会自动检测并报告以下主流硬件编码器及其支持的格式：
 | 编码器名称                     	        | 支持的视频编码格式                           |
 |------------------------------------------|------------------------------------------- |
 | NVEnc                          	       | H.264、H.265、AV1                          |
@@ -32,7 +32,7 @@
 | Apple VideoToolbox               	       | H.264、H.265                               |
 
 ### 解码器
-脚本会自动测试并报告以下主流硬件解码器及其支持的格式：
+脚本会自动检测并报告以下主流硬件解码器及其支持的格式：
 | 编码器名称                                 | 支持的视频编码格式                                             |
 |------------------------------------------	|------------------------------------------------------------- |
 | NVDec (CUVID)                  	        | H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |

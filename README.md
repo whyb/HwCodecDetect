@@ -1,4 +1,4 @@
-# FFmpeg Hardware Codec Test Script(HwCodecDetect)
+# FFmpeg Hardware Codec Detect Script(HwCodecDetect)
 <p align="center">
     <a href="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml">
         <img src="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml/badge.svg" />
@@ -21,7 +21,7 @@ This project was created to solve this very problem. It's a convenient tool for 
 
 ## Key Features
 ### Encoders
-The script automatically tests and reports on the following major hardware encoders and their supported formats:
+The script automatically detect and reports on the following major hardware encoders and their supported formats:
 | Encoder Name                   	       | Supported Video Formats                   |
 |------------------------------------------|------------------------------------------- |
 | NVEnc                          	       | H.264、H.265、AV1                          |
@@ -34,7 +34,7 @@ The script automatically tests and reports on the following major hardware encod
 | Apple VideoToolbox               	       | H.264、H.265                               |
 
 ### Decoders
-The script automatically tests and reports on the following major hardware decoders and their supported formats:
+The script automatically detect and reports on the following major hardware decoders and their supported formats:
 | Decoder Name                              | Supported Video Formats                                      |
 |------------------------------------------	|------------------------------------------------------------- |
 | NVDec (CUVID)                  	        | H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
