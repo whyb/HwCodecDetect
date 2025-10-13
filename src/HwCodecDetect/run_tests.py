@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import shlex
 import subprocess
 import shutil
 import tempfile
@@ -182,11 +183,29 @@ def _run_encoder_test_single(test_data):
     status = "succeeded" if success else "failed"
 
     if verbose:
-        if stdout:
-            print(f"Output:\n{stdout}")
-        if stderr:
-            print(f"Error Output:\n{stderr}")
-        print(f"Test Result: {status}")
+        info_str = f"codec: {codec}, encoder: {encoder}, resolution: {res_size}, status: {status}"
+        command_str = " ".join(shlex.quote(arg) for arg in command)
+        if stdout.strip() and stderr.strip():
+            command_log = f"{stdout.strip()}\n{stderr.strip()}"
+        elif stdout.strip():
+            command_log = stdout.strip()
+        elif stderr.strip():
+            command_log = stderr.strip()
+        else:
+            command_log = "(none)"
+        log_message = f"""
+==================================================
+[Encoder Detect Info]
+{info_str}
+
+[FFmpeg Command]
+{command_str}
+
+[Command Log]
+{command_log}
+==================================================
+""".strip()
+        print(log_message)
 
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     return title, res_name, status
@@ -276,11 +295,32 @@ def _run_decoder_test_single(test_data):
     status = "succeeded" if success else "failed"
 
     if verbose:
-        if stdout:
-            print(f"Output:\n{stdout}")
-        if stderr:
-            print(f"Error Output:\n{stderr}")
-        print(f"Test Result: {status}")
+        info_str = f"codec: {codec}, decoder: {hw_decoder}, resolution: {res_size}"
+        command_str = " ".join(shlex.quote(arg) for arg in command)
+        if stdout.strip() and stderr.strip():
+            command_log = f"{stdout.strip()}\n{stderr.strip()}"
+        elif stdout.strip():
+            command_log = stdout.strip()
+        elif stderr.strip():
+            command_log = stderr.strip()
+        else:
+            command_log = "(none)"
+        log_message = f"""
+==================================================
+[Decoder Detect Info]
+{info_str}
+
+[Status]
+{status}
+
+[FFmpeg Command]
+{command_str}
+
+[Command Log]
+{command_log}
+==================================================
+""".strip()
+        print(log_message)
 
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     return title, res_name, status
