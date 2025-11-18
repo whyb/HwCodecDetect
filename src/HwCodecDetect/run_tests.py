@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import platform
 import shlex
 import subprocess
 import shutil
@@ -11,6 +12,12 @@ from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("Warning: psutil library not found. Falling back to OS-specific methods.", file=sys.stderr)
 
 init(autoreset=True)
 
@@ -131,9 +138,101 @@ ALL_CODECS = {
     **{k: v for k, v in ENCODERS.items() if k not in DECODERS}
 }
 
-# NEW: Set the number of concurrent processes/threads for encoding and decoding
+def get_available_memory():
+    # --- plan A. use psutil ---
+    if PSUTIL_AVAILABLE:
+        try:
+            return psutil.virtual_memory().available
+        except Exception as e:
+            print(f"Error using psutil: {e}. Falling back...", file=sys.stderr)
+            pass
+
+    # --- plan B. OS-specific Fallback ---
+    system = platform.system()
+
+    if system == "Linux":
+        # /proc/meminfo in Linux
+        try:
+            with open('/proc/meminfo', 'r') as f:
+                content = f.read()
+            # find MemAvailable:
+            # Or MemFree + Buffers + Cached
+            match = re.search(r'MemAvailable:\s+(\d+)\s+kB', content)
+            if match:
+                # MemAvailable: KB unit
+                # int(match.group(1)) * 1024 convert to bytes
+                return int(match.group(1)) * 1024
+
+            # if not found MemAvailable, try MemFree
+            match_free = re.search(r'MemFree:\s+(\d+)\s+kB', content)
+            if match_free:
+                return int(match_free.group(1)) * 1024
+            return -1
+        except Exception as e:
+            print(f"Linux fallback failed: {e}", file=sys.stderr)
+            return -1
+
+    elif system == "Windows":
+        # use wmic command in Windows
+        try:
+            # wmic OS Get FreePhysicalMemory /Value get result: KB unit
+            result = subprocess.run(
+                ['wmic', 'OS', 'Get', 'FreePhysicalMemory', '/Value'],
+                capture_output=True,
+                text=True,
+                check=True,
+                encoding='utf-8'
+            )
+            # 'FreePhysicalMemory=XXXXXX\r\n'
+            match = re.search(r'FreePhysicalMemory=(\d+)', result.stdout)
+
+            if match:
+                # FreePhysicalMemory KB unit
+                # int(match.group(1)) * 1024 convert to bytes
+                return int(match.group(1)) * 1024
+            return -1
+
+        except Exception as e:
+            print(f"Windows fallback failed: {e}", file=sys.stderr)
+            return -1
+
+    elif system in ["Darwin", "FreeBSD"]: # macOS (Darwin) or FreeBSD
+        # use sysctl command in macOS/BSD
+        try:
+            # sysctl vm.stats.vm.v_free_count (page_size * v_free_count)
+            page_size = os.sysconf('SC_PAGE_SIZE')
+
+            result = subprocess.run(
+                ['sysctl', '-n', 'vm.stats.vm.v_free_count'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            free_pages = int(result.stdout.strip())
+
+            return free_pages * page_size
+        except Exception as e:
+            print(f"macOS/BSD fallback failed: {e}", file=sys.stderr)
+            return -1
+    else:
+        # others OS(Solaris, AIX, etc...)
+        print(f"Unsupported OS for fallback: {system}", file=sys.stderr)
+        return -1
+
+
+# Set the number of concurrent processes/threads for encoding and decoding
 CONCURRENT_ENCODER_COUNT = 8
 CONCURRENT_DECODER_COUNT = 16
+available_memory = get_available_memory()
+available_memory_mb = available_memory / (1024 * 1024)
+print(f"Current available system memory is {available_memory_mb:.2f} MB.")
+if available_memory > 0:
+    # Estimate based on available memory (assume each ffmpeg's process needs 256MB)
+    CONCURRENT_ENCODER_COUNT = max(1, available_memory_mb // 256)
+    CONCURRENT_DECODER_COUNT = max(1, available_memory_mb // 256)
+    CONCURRENT_ENCODER_COUNT = min(CONCURRENT_ENCODER_COUNT, 32)
+    CONCURRENT_DECODER_COUNT = min(CONCURRENT_DECODER_COUNT, 32)
+
 
 def _run_ffmpeg_command(command, verbose):
     """Executes an FFmpeg command and returns True on success, False on failure."""
