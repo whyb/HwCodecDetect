@@ -2,11 +2,14 @@ name: PyInstaller Build and Release Binaries
 
 on:
   push:
+    tags:
+      - "v*.*.*"
     branches: [ "main", "testci" ]
   workflow_dispatch:
 
 permissions:
   contents: write
+  discussions: write
 
 env:
   APP_NAME: "HwCodecDetect"
