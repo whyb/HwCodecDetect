@@ -1,0 +1,216 @@
+name: PyInstaller Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+    branches: [ "main", "testci" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  discussions: write
+
+env:
+  APP_NAME: "HwCodecDetect"
+  ENTRY_POINT_SCRIPT: "launcher.py"
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --- Windows ---
+          - os: windows-latest
+            python_arch: 'x64'
+            artifact_name: HwCodecDetect-Windows-x64.exe
+            asset_name: HwCodecDetect-Windows-x64.exe
+            job_type: native
+
+          - os: windows-latest
+            python_arch: 'x86' # 32bit Windows
+            artifact_name: HwCodecDetect-Windows-x86.exe
+            asset_name: HwCodecDetect-Windows-x86.exe
+            job_type: native
+
+          # --- macOS ---
+          - os: macos-13       # Intel Macs (runs on x86_64)
+            python_arch: 'x64'
+            artifact_name: HwCodecDetect-macOS-Intel
+            asset_name: HwCodecDetect-macOS-Intel
+            job_type: native
+
+          - os: macos-latest   # Apple Silicon (runs on arm64/M1/M2)
+            python_arch: 'arm64'
+            artifact_name: HwCodecDetect-macOS-ARM64
+            asset_name: HwCodecDetect-macOS-ARM64
+            job_type: native
+
+          # --- Linux Native (x64) ---
+          - os: ubuntu-22.04
+            python_arch: 'x64'
+            artifact_name: HwCodecDetect-Linux-x64
+            asset_name: HwCodecDetect-Linux-x64
+            job_type: native
+
+          # --- Linux Emulated (ARM64 / aarch64) ---
+          - os: ubuntu-22.04
+            job_type: emulated
+            qemu_arch: aarch64
+            docker_img: python:3.10-bullseye
+            artifact_name: HwCodecDetect-Linux-arm64
+            asset_name: HwCodecDetect-Linux-arm64
+
+          # --- Linux Emulated (x86 / i386) ---
+          - os: ubuntu-22.04
+            job_type: emulated
+            qemu_arch: i386
+            docker_img: i386/python:3.10-slim-bullseye
+            artifact_name: HwCodecDetect-Linux-x86
+            asset_name: HwCodecDetect-Linux-x86
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create Entry Point Script
+      shell: bash
+      run: |
+        cat > ${{ env.ENTRY_POINT_SCRIPT }} <<EOF
+        import runpy
+        import sys
+        import os
+        sys.path.append(os.path.abspath("."))
+        if False:
+            import src.HwCodecDetect.run_tests
+        if __name__ == "__main__":
+            runpy.run_module('src.HwCodecDetect.run_tests', run_name='__main__', alter_sys=True)
+        EOF
+
+    - name: Set up Python (Native)
+      if: matrix.job_type == 'native'
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        architecture: ${{ matrix.python_arch }}
+
+    - name: Install & Build (Native)
+      if: matrix.job_type == 'native'
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel setuptools pyinstaller
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
+
+        if [ "$RUNNER_OS" == "Windows" ]; then SEP=";"; else SEP=":"; fi
+        
+        pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+          --paths ".$SEP" \
+          --distpath dist \
+          --workpath build \
+          "${{ env.ENTRY_POINT_SCRIPT }}"
+
+    - name: Build on Linux ${{ matrix.qemu_arch }} (Emulated)
+      if: matrix.job_type == 'emulated'
+      uses: uraimo/run-on-arch-action@v2
+      with:
+        arch: ${{ matrix.qemu_arch }}
+        distro: bullseye
+        githubToken: ${{ github.token }}
+        dockerRunArgs: |
+          --volume "${{ github.workspace }}:/work"
+        base_image: ${{ matrix.docker_img }}
+        
+        run: |
+          cd /work
+
+          apt-get update && apt-get install -y --no-install-recommends \
+            build-essential gcc zlib1g-dev git
+
+          python3 -m pip install --upgrade pip
+          pip install build wheel setuptools pyinstaller
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install .
+          
+          pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+            --paths . \
+            --distpath dist \
+            --workpath build \
+            "${{ env.ENTRY_POINT_SCRIPT }}"
+
+          chmod -R 777 dist/
+
+    - name: Rename Artifacts (Standardize)
+      shell: bash
+      run: |
+        cd dist || exit 1
+        
+        if [ -f "${{ env.APP_NAME }}.exe" ]; then
+            mv "${{ env.APP_NAME }}.exe" "${{ matrix.artifact_name }}"
+        elif [ -f "${{ env.APP_NAME }}" ]; then
+            mv "${{ env.APP_NAME }}" "${{ matrix.artifact_name }}"
+        else
+            echo "Error: Could not find build artifact!"
+            ls -la
+            exit 1
+        fi
+
+    - name: Test Binary (Smoke Test)
+      shell: bash
+      if: matrix.job_type == 'native' 
+      run: |
+        echo "Testing binary execution..."
+        chmod +x ./dist/${{ matrix.artifact_name }}
+        ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran with exit code $?"
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: dist/${{ matrix.artifact_name }}
+        if-no-files-found: error
+
+  create-release:
+    name: Create Draft Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Get Meta Data
+        id: vars
+        run: |
+          echo "date=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Create Release (Draft)
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ github.ref_name }}-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.short_sha }}
+          name: "Build: ${{ github.ref_name }} (${{ steps.vars.outputs.date }})"
+          body: |
+            Automated multi-platform build.
+            Commit: ${{ github.sha }}
+            
+            ### Supported Platforms:
+            - **Windows**: x64, x86 (32-bit)
+            - **macOS**: Apple Silicon (ARM64), Intel
+            - **Linux**: x64, ARM64, x86
+            
+            *Note: Windows ARM users should use the Windows x86 or x64 binary.*
+          draft: true
+          prerelease: true
+          files: |
+            artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
