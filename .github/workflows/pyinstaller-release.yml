@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  ENTRY_POINT: "src/HwCodecDetect/run_tests.py" 
+  ENTRY_POINT: "launcher.py"
   APP_NAME: "HwCodecDetect"
 
 jobs:
@@ -51,10 +51,29 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pip install .
 
+    - name: Create Entry Point Script
+      shell: bash
+      run: |
+        cat > launcher.py <<EOF
+        import runpy
+        import sys
+        import os
+
+        sys.path.append(os.path.abspath("."))
+
+        if False:
+            import src.HwCodecDetect.run_tests
+
+        if __name__ == "__main__":
+            runpy.run_module('src.HwCodecDetect.run_tests', run_name='__main__', alter_sys=True)
+        EOF
+    # ---------------------------
+
     - name: Build with PyInstaller (Windows)
       if: runner.os == 'Windows'
       run: |
         pyinstaller --clean --onefile --name ${{ env.APP_NAME }} `
+          --paths . `
           --distpath dist `
           --workpath build `
           "${{ env.ENTRY_POINT }}"
@@ -64,6 +83,7 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+          --paths . \
           --distpath dist \
           --workpath build \
           "${{ env.ENTRY_POINT }}"
@@ -72,12 +92,12 @@ jobs:
     - name: Test Binary Execution (Smoke Test)
       shell: bash
       run: |
-        # test run command --help
+        echo "Testing binary execution..."
         if [ "$RUNNER_OS" == "Windows" ]; then
-          ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran with exit code $?"
+          ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran (exit code $?)"
         else
           chmod +x ./dist/${{ matrix.artifact_name }}
-          ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran with exit code $?"
+          ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran (exit code $?)"
         fi
 
     - name: Upload Artifacts
@@ -117,7 +137,7 @@ jobs:
             Commit: ${{ github.sha }}
             
             ### How to use:
-            Download the binary for your platform. 
+            Download the binary for your platform.
             *Note: You likely need FFmpeg installed on your system path.*
           draft: true
           prerelease: true
