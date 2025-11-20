@@ -225,7 +225,7 @@ CONCURRENT_ENCODER_COUNT = 8
 CONCURRENT_DECODER_COUNT = 16
 available_memory = get_available_memory()
 available_memory_mb = available_memory / (1024 * 1024)
-print(f"Current available system memory is {available_memory_mb:.2f} MB.")
+#print(f"Current available system memory is {available_memory_mb:.2f} MB.")
 if available_memory > 0:
     # Estimate based on available memory (assume each ffmpeg's process needs 256MB)
     CONCURRENT_ENCODER_COUNT = max(1, available_memory_mb // 256)
@@ -541,7 +541,12 @@ def run_all_tests(args):
     print("Cleanup complete.")
 
     return
-    
+
+def get_resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 def main():
     """Parses arguments and runs the test suite."""
     
@@ -578,9 +583,10 @@ def main():
     )
 
     try:
-        with open("VERSION", "r") as f:
+        version_file_path = get_resource_path("VERSION")
+        with open(version_file_path, "r", encoding="utf-8") as f:
             version_str = f.read().strip()
-    except FileNotFoundError:
+    except Exception:
         version_str = "Unknown"
 
     parser.add_argument(

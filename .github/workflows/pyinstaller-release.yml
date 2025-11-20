@@ -2,8 +2,7 @@ name: PyInstaller Build and Release Binaries
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    tags: [ "v*.*.*" ]
     branches: [ "main", "testci" ]
   workflow_dispatch:
 
@@ -108,6 +107,7 @@ jobs:
         if [ "$RUNNER_OS" == "Windows" ]; then SEP=";"; else SEP=":"; fi
         
         pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+          --add-data "VERSION${SEP}." \
           --paths ".$SEP" \
           --distpath dist \
           --workpath build \
@@ -136,6 +136,7 @@ jobs:
           pip install .
           
           pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+            --add-data "VERSION:." \
             --paths . \
             --distpath dist \
             --workpath build \
@@ -165,6 +166,7 @@ jobs:
         echo "Testing binary execution..."
         chmod +x ./dist/${{ matrix.artifact_name }}
         ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran with exit code $?"
+        ./dist/${{ matrix.artifact_name }} --version || echo "Binary ran with exit code $?"
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
@@ -194,10 +196,10 @@ jobs:
           echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Create Release (Draft)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.ref_name }}-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.short_sha }}
-          name: "Build: ${{ github.ref_name }} (${{ steps.vars.outputs.date }})"
+          tag_name: ${{ github.ref_name }}
+          name: "${{ github.ref_name }}"
           body: |
             Automated multi-platform build.
             Commit: ${{ github.sha }}
