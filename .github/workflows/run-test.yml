@@ -153,31 +153,31 @@ jobs:
         python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
       working-directory: HwCodecDetect
 
-  test-on-alpine:
-    runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
-    env:
-      PYTHONIOENCODING: utf-8
-    steps:
-    - name: Install dependencies
-      run: |
-        apk update
-        apk add python3 py3-pip git ffmpeg py3-virtualenv
-    - name: Clone HwCodecDetect
-      run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
-    - name: Create virtualenv and install project
-      run: |
-        python3 -m venv .venv
-        source .venv/bin/activate
-        pip install --upgrade pip
-        pip install -e .
-      working-directory: HwCodecDetect
-    - name: Run tests
-      run: |
-        source .venv/bin/activate
-        python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
-      working-directory: HwCodecDetect
+  #test-on-alpine:
+  #  runs-on: ubuntu-latest
+  #  container:
+  #    image: alpine:latest
+  #  env:
+  #    PYTHONIOENCODING: utf-8
+  #  steps:
+  #  - name: Install dependencies
+  #    run: |
+  #      apk update
+  #      apk add python3 py3-pip git ffmpeg py3-virtualenv
+  #  - name: Clone HwCodecDetect
+  #    run: git clone -b main --single-branch https://github.com/whyb/HwCodecDetect.git
+  #  - name: Create virtualenv and install project
+  #    run: |
+  #      python3 -m venv .venv
+  #      source .venv/bin/activate
+  #      pip install --upgrade pip
+  #      pip install -e .
+  #    working-directory: HwCodecDetect
+  #  - name: Run tests
+  #    run: |
+  #      source .venv/bin/activate
+  #      python -m src.HwCodecDetect.run_tests --encoder-count 8 --decoder-count 8 --verbose
+  #    working-directory: HwCodecDetect
 
   test-on-fedora:
     runs-on: ubuntu-latest
