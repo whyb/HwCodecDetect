@@ -47,7 +47,7 @@
 ## 如何使用
 ### 方式一：通过 PyPI 安装 (推荐)
 如果您只需快速使用本工具，这是最简单的方式。
-1. 安装：通过 pip 从 PyPI 官方仓库安装 HwCodecDetect。
+1. 安装：通过 pip 从 [PyPI 官方仓库](https://pypi.org/project/hwcodecdetect) 安装 HwCodecDetect。
     ```bash
     pip install HwCodecDetect
     ```
@@ -57,7 +57,27 @@
     HwCodecDetect
     ```
 
-### 方式二：从源码本地安装
+### 方法二：下载并运行可执行文件 (独立运行)
+如果您希望在不安装 Python 依赖的情况下运行该工具，或者 PyPI 安装失败，请使用此方法。
+
+1. 下载：前往项目的 [**Releases 页面**](https://github.com/whyb/HwCodecDetect/releases)，下载与您的操作系统对应的可执行文件（例如：`HwCodecDetect-Linux-x64`、`HwCodecDetect-Windows-x64.exe`）。
+
+2. （仅限 Linux/macOS）添加执行权限：如果您使用的是 Linux 或 macOS，您需要授予下载的文件执行权限。
+    ```bash
+    # 将 'HwCodecDetect-Linux-x64' 替换为实际下载的文件名
+    chmod +x HwCodecDetect-Linux-x64
+    ```
+
+3. 运行：直接在终端中执行该文件。
+    ```bash
+    # 适用于 Linux/macOS
+    ./HwCodecDetect-Linux-x64
+
+    # 适用于 Windows (例如在 PowerShell 或命令提示符(cmd)中)
+    .\HwCodecDetect-Windows-x64.exe
+    ```
+
+### 方式三：从源码本地安装
 如果您从 GitHub 克隆了项目源码，并想在本地环境中运行，可以采用此方法。
 1. 克隆仓库：首先，将项目源码克隆到本地。
     ```bash

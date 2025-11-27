@@ -51,7 +51,7 @@ You can install and use HwCodecDetect in two ways.
 ### Method 1: Install via PyPI (Recommended)
 This is the easiest method if you just want to use the tool quickly.
 
-1. Install: Use pip to install HwCodecDetect from the official PyPI repository.
+1. Install: Use pip to install HwCodecDetect from the [official PyPI repository](https://pypi.org/project/hwcodecdetect).
     ```bash
     pip install HwCodecDetect
     ```
@@ -61,7 +61,27 @@ This is the easiest method if you just want to use the tool quickly.
     HwCodecDetect
     ```
 
-### Method 2: Install from Source
+### Method 2: Download and Run Executable (Standalone)
+Use this method if you prefer to run the tool without installing Python dependencies, or if the PyPI installation fails.
+
+1. Download: Go to the project's [**Releases page**](https://github.com/whyb/HwCodecDetect/releases) and download the executable file corresponding to your operating system (e.g., `HwCodecDetect-Linux-x64`, `HwCodecDetect-Windows-x64.exe`).
+
+2. (Linux/macOS only) Add Execute Permission: If you are on Linux or macOS, you need to grant the downloaded file execute permission.
+    ```bash
+    # Replace 'HwCodecDetect-Linux-x64' with the actual downloaded filename
+    chmod +x HwCodecDetect-Linux-x64
+    ```
+
+3. Run: Execute the file directly from your terminal.
+    ```bash
+    # For Linux/macOS
+    ./HwCodecDetect-Linux-x64
+
+    # For Windows (e.g., in PowerShell or Command Prompt)
+    .\HwCodecDetect-Windows-x64.exe
+    ```
+
+### Method 3: Install from Source
 Use this method if you have cloned the project source code from GitHub and want to run it locally.
 
 1. Clone the repository: First, clone the project source code to your local machine.
