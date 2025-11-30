@@ -257,19 +257,33 @@ def _run_encoder_test_single(test_data):
     codec, encoder, res_name, res_size, test_dir, verbose = test_data
     file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
-
-    command = [
-        "ffmpeg",
-        "-loglevel", "quiet",
-        "-hide_banner",
-        "-y",
-        "-f", "lavfi",
-        "-i", f"color=white:s={res_size}:d=1",
-        "-frames:v", "1",
-        "-c:v", encoder,
-        "-pixel_format", "yuv420p",
-        output_file,
-    ]
+    if "vulkan" in encoder:
+        command = [
+            "ffmpeg",
+            "-loglevel", "quiet",
+            "-hide_banner",
+            "-y",
+            "-init_hw_device", "vulkan=vk:0",
+            "-f", "lavfi",
+            "-i", f"color=white:s={res_size}:d=1",
+            "-frames:v", "1",
+            "-vf", "format=nv12,hwupload,format=vulkan",
+            "-c:v", encoder,
+            output_file,
+        ]
+    else:
+        command = [
+            "ffmpeg",
+            "-loglevel", "quiet",
+            "-hide_banner",
+            "-y",
+            "-f", "lavfi",
+            "-i", f"color=white:s={res_size}:d=1",
+            "-frames:v", "1",
+            "-c:v", encoder,
+            "-pixel_format", "yuv420p",
+            output_file,
+        ]
 
     if "qsv" in encoder:
         command.insert(9, "-dual_gfx")
