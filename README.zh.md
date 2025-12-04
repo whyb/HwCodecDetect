@@ -47,14 +47,14 @@
 ## 如何使用
 ### 方式一：通过 PyPI 安装 (推荐)
 如果您只需快速使用本工具，这是最简单的方式。
-1. 安装：通过 pip 从 [PyPI 官方仓库](https://pypi.org/project/hwcodecdetect) 安装 HwCodecDetect。
+1. 安装：通过 pip 从 [PyPI 官方仓库](https://pypi.org/project/hwcodecdetect) 安装 hwcodecdetect。
     ```bash
-    pip install HwCodecDetect
+    pip install hwcodecdetect
     ```
 
-2. 运行：安装完成后，直接在命令行中运行 HwCodecDetect 命令。
+2. 运行：安装完成后，直接在命令行中运行 hwcodecdetect 命令。
     ```bash
-    HwCodecDetect
+    hwcodecdetect
     ```
 
 ### 方法二：下载并运行可执行文件 (独立运行)
@@ -81,16 +81,16 @@
 如果您从 GitHub 克隆了项目源码，并想在本地环境中运行，可以采用此方法。
 1. 克隆仓库：首先，将项目源码克隆到本地。
     ```bash
-    git clone https://github.com/whyb/HwCodecDetect.git
+    git clone https://github.com/whyb/HwCodecDetect.git ./HwCodecDetect
     ```
 2. 安装依赖：进入项目根目录，通过 pip 安装项目所需的依赖。
     ```bash
     cd HwCodecDetect
     pip install .
     ```
-3. 运行：安装完成后，直接在命令行中运行 HwCodecDetect 命令。
+3. 运行：安装完成后，直接在命令行中运行 hwcodecdetect 命令。
     ```bash
-    HwCodecDetect
+    hwcodecdetect
     ```
 
 ## 效果展示
