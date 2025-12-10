@@ -36,7 +36,7 @@ jobs:
             job_type: native
 
           # --- macOS ---
-          - os: macos-13       # Intel Macs (runs on x86_64)
+          - os: macos-15-intel       # Intel Macs (runs on x86_64)
             python_arch: 'x64'
             artifact_name: HwCodecDetect-macOS-Intel
             asset_name: HwCodecDetect-macOS-Intel
