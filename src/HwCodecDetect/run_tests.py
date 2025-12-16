@@ -230,8 +230,8 @@ if available_memory > 0:
     # Estimate based on available memory (assume each ffmpeg's process needs 256MB)
     CONCURRENT_ENCODER_COUNT = max(1, available_memory_mb // 256)
     CONCURRENT_DECODER_COUNT = max(1, available_memory_mb // 256)
-    CONCURRENT_ENCODER_COUNT = min(CONCURRENT_ENCODER_COUNT, 32)
-    CONCURRENT_DECODER_COUNT = min(CONCURRENT_DECODER_COUNT, 32)
+    CONCURRENT_ENCODER_COUNT = min(CONCURRENT_ENCODER_COUNT, 8)
+    CONCURRENT_DECODER_COUNT = min(CONCURRENT_DECODER_COUNT, 8)
 
 
 def _run_ffmpeg_command(command, verbose):
@@ -295,6 +295,14 @@ def _run_encoder_test_single(test_data):
     success, stdout, stderr = _run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
+    # If encoding failed, clean up the output file so decoder tests don't try to use a corrupt file
+    if not success and os.path.exists(output_file):
+        try:
+            os.remove(output_file)
+        except OSError:
+            pass
+
+
     if verbose:
         info_str = f"codec: {codec}, encoder: {encoder}, resolution: {res_size}, status: {status}"
         command_str = " ".join(shlex.quote(arg) for arg in command)
@@ -354,9 +362,12 @@ def _run_decoder_test_single(test_data):
     found_file = False
     for filename in os.listdir(test_dir):
         if filename.startswith(f"{codec}_") and f"_{res_name}" in filename:
-            test_file_path = os.path.join(test_dir, filename)
-            found_file = True
-            break
+            candidate_path = os.path.join(test_dir, filename)
+            # Ensure the file is valid (at least has some content)
+            if os.path.exists(candidate_path) and os.path.getsize(candidate_path) > 0:
+                test_file_path = candidate_path
+                found_file = True
+                break
     
     if not found_file:
         cpu_lib = ALL_CODECS[codec]["lib"]
