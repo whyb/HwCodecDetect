@@ -271,6 +271,20 @@ def _run_encoder_test_single(test_data):
             "-c:v", encoder,
             output_file,
         ]
+    elif "d3d12va" in encoder:
+        command = [
+            "ffmpeg",
+            "-loglevel", "quiet",
+            "-hide_banner",
+            "-y",
+            "-init_hw_device", "d3d12va:0",
+            "-f", "lavfi",
+            "-i", f"color=white:s={res_size}:d=1",
+            "-frames:v", "1",
+            "-vf", "format=nv12,hwupload",
+            "-c:v", encoder,
+            output_file,
+        ]
     else:
         command = [
             "ffmpeg",
@@ -397,7 +411,7 @@ def _run_decoder_test_single(test_data):
             "-i", test_file_path,
             "-f", "null", "null",
         ]
-    elif hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8"]:
+    elif hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
             "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file_path,
