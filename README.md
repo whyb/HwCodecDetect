@@ -103,9 +103,10 @@ Use this method if you have cloned the project source code from GitHub and want 
     hwcodecdetect
     ```
 
-## Demo
+## Final effect
 Here are some possible results from a local test run:
-![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/run_tests.png)
+<video src="imgs/hwcodecdetect.mp4" muted autoplay loop controls style="max-width: 100%;">
+</video>
 
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)
