@@ -98,7 +98,7 @@
 
 ## 效果展示
 下面是本地运行测试的可能的结果：
-<video src="imgs/hwcodecdetect.mp4" muted autoplay loop controls style="max-width: 100%;">
+<video src="https://github.com/whyb/HwCodecDetect/blob/main/imgs/hwcodecdetect.mp4?raw=true" muted autoplay loop controls style="max-width: 100%;">
 </video>
 
 ## Star增长记录

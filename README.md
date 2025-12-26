@@ -105,7 +105,7 @@ Use this method if you have cloned the project source code from GitHub and want 
 
 ## Final effect
 Here are some possible results from a local test run:
-<video src="imgs/hwcodecdetect.mp4" muted autoplay loop controls style="max-width: 100%;">
+<video src="https://github.com/whyb/HwCodecDetect/blob/main/imgs/hwcodecdetect.mp4?raw=true" muted autoplay loop controls style="max-width: 100%;">
 </video>
 
 ## Star History
