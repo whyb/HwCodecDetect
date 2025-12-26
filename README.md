@@ -103,3 +103,6 @@ Use this method if you have cloned the project source code from GitHub and want 
 ## Demo
 Here are some possible results from a local test run:
 ![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/run_tests.png)
+
+## Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)

@@ -96,3 +96,6 @@
 ## 效果展示
 下面是本地运行测试的可能的结果：
 ![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/run_tests.png)
+
+## Star增长记录
+[![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)
