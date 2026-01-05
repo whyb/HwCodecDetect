@@ -607,7 +607,7 @@ def main():
     """ + help_text, formatter_class=argparse.RawTextHelpFormatter)
     
     parser.add_argument(
-        "--encoder-count",
+        "-ec", "--encoder-count",
         type=int,
         default=CONCURRENT_ENCODER_COUNT,
         help=f"Set the number of multi-process concurrent encoder testing. (default: {CONCURRENT_ENCODER_COUNT}) "
@@ -615,28 +615,32 @@ def main():
     )
     
     parser.add_argument(
-        "--decoder-count",
+        "-dc", "--decoder-count",
         type=int,
         default=CONCURRENT_DECODER_COUNT,
         help=f"Set the number of multi-process concurrent decoder testing. (default: {CONCURRENT_DECODER_COUNT})"
     )
 
     try:
-        version_file_path = get_resource_path("VERSION")
-        with open(version_file_path, "r", encoding="utf-8") as f:
-            version_str = f.read().strip()
-    except Exception:
-        version_str = "Unknown"
+        import version
+        version_str = version.__version__
+    except ImportError:
+        try:
+            version_file_path = get_resource_path("VERSION")
+            with open(version_file_path, "r", encoding="utf-8") as f:
+                version_str = f.read().strip()
+        except Exception:
+            version_str = "Unknown"
 
     parser.add_argument(
-        "--version", 
+        "-v", "--version",
         action="version", 
         version=f"HwCodecDetect v{version_str}",
         help="Show program's version number and exit."
     )
 
     parser.add_argument(
-        '--verbose', 
+        '--verbose',
         action='store_true', 
         help='Print detailed information for each test'
     )
