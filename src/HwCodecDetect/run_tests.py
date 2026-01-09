@@ -7,11 +7,15 @@ import subprocess
 import shutil
 import tempfile
 import argparse
+import threading
+import tkinter as tk
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from tkinter import ttk
+
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -586,6 +590,222 @@ def get_resource_path(relative_path):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
+class HwCodecGUI:
+    def __init__(self, root, args):
+        self.root = root
+        self.args = args
+        self.stop_requested = False
+        self.running = False
+
+        frame = ttk.LabelFrame(root, text="Settings")
+        frame.pack(fill="x", padx=10, pady=10)
+
+        ttk.Label(frame, text="Encoder Multi-process Count (1-8):").grid(row=0, column=0, padx=5, pady=5)
+        self.encoder_var = tk.StringVar(value=str(args.encoder_count))
+        ttk.Entry(frame, textvariable=self.encoder_var, width=10).grid(row=0, column=1)
+
+        ttk.Label(frame, text="Decoder Multi-process Count (1-8):").grid(row=0, column=2, padx=5, pady=5)
+        self.decoder_var = tk.StringVar(value=str(args.decoder_count))
+        ttk.Entry(frame, textvariable=self.decoder_var, width=10).grid(row=0, column=3)
+
+        self.start_button = ttk.Button(frame, text="Start Test", command=self.start_or_stop)
+        self.start_button.grid(row=0, column=4, columnspan=4, pady=10)
+
+        self.progress = ttk.Progressbar(root, mode="determinate", maximum=100)
+        self.progress.pack(fill="x", padx=10, pady=10)
+
+        self.notebook = ttk.Notebook(root)
+        self.tab_dec = ttk.Frame(self.notebook)
+        self.tab_enc = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_dec, text="Decoders")
+        self.notebook.add(self.tab_enc, text="Encoders")
+        self.notebook.pack(expand=True, fill="both", padx=10, pady=10, ipady=200)
+
+        self.table_dec = self.create_summary_table(self.tab_dec)
+        self.table_enc = self.create_summary_table(self.tab_enc)
+
+    def create_summary_table(self, parent):
+        container = ttk.Frame(parent, height=500)
+        container.pack(expand=True, fill="both")
+        container.pack_propagate(False)
+
+        columns = ["Codec"] + list(RESOLUTIONS.keys())
+
+        tree = ttk.Treeview(container, columns=columns, show="headings")
+        for col in columns:
+            tree.heading(col, text=col)
+            width = 380 if col == "Codec" else 80
+            tree.column(col, width=width, anchor="center")
+
+        vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+
+        return tree
+
+    def start_or_stop(self):
+        if not self.running:
+            self.start_test()
+        else:
+            self.stop_requested = True
+            self.start_button.config(text="Start Test")
+            self._clear_tables()
+
+    def start_test(self):
+        enc = self._safe_count(self.encoder_var, default=self.args.encoder_count)
+        dec = self._safe_count(self.decoder_var, default=self.args.decoder_count)
+        self.args.encoder_count = enc
+        self.args.decoder_count = dec
+
+        self.stop_requested = False
+        self.running = True
+        self.start_button.config(text="Stop")
+        self.progress["value"] = 0
+        self._clear_tables()
+
+        t = threading.Thread(target=self.run_tests_thread, daemon=True)
+        t.start()
+
+    def _safe_count(self, var, default):
+        try:
+            v = int(var.get())
+        except Exception:
+            v = default
+        if v < 1:
+            v = 1
+        if v > 8:
+            v = 8
+        var.set(str(v))
+        return v
+
+    def run_tests_thread(self):
+        temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_GUI")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+
+        encoder_results = defaultdict(dict)
+        decoder_results = defaultdict(dict)
+
+        total_enc_tasks = sum(
+            len(info["hw_encoders"]) * len(RESOLUTIONS)
+            for info in ENCODERS.values()
+        )
+        total_dec_tasks = sum(
+            len(info["hw_decoders"]) * len(RESOLUTIONS)
+            for info in DECODERS.values()
+        )
+        total_tasks = total_enc_tasks + total_dec_tasks
+        done_tasks = 0
+
+        enc_tasks = []
+        for codec, info in ENCODERS.items():
+            for encoder in info["hw_encoders"]:
+                for res_name, res_size in RESOLUTIONS.items():
+                    enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False))
+
+        with ThreadPoolExecutor(max_workers=self.args.encoder_count) as executor:
+            futures = [executor.submit(_run_encoder_test_single, t) for t in enc_tasks]
+            for f in as_completed(futures):
+                if self.stop_requested:
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    self._finish_run(cancelled=True)
+                    return
+                title, res_name, status = f.result()
+                encoder_results[title][res_name] = status
+                done_tasks += 1
+                self._update_progress(int(done_tasks * 100 / total_tasks))
+
+        dec_tasks = []
+        for codec, info in DECODERS.items():
+            for hw_decoder in info["hw_decoders"]:
+                for res_name, res_size in RESOLUTIONS.items():
+                    dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False))
+
+        with ThreadPoolExecutor(max_workers=self.args.decoder_count) as executor:
+            futures = [executor.submit(_run_decoder_test_single, t) for t in dec_tasks]
+            for f in as_completed(futures):
+                if self.stop_requested:
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    self._finish_run(cancelled=True)
+                    return
+                title, res_name, status = f.result()
+                decoder_results[title][res_name] = status
+                done_tasks += 1
+                self._update_progress(int(done_tasks * 100 / total_tasks))
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        if not self.stop_requested:
+            self._update_summary_table(self.table_enc, encoder_results, kind="Encoder")
+            self._update_summary_table(self.table_dec, decoder_results, kind="Decoder")
+            self._update_progress(100)
+
+        self._finish_run(cancelled=self.stop_requested)
+
+    def _finish_run(self, cancelled=False):
+        def _inner():
+            self.running = False
+            self.start_button.config(text="Start Test")
+            if cancelled:
+                self.progress["value"] = 0
+                self._clear_tables()
+        self.root.after(0, _inner)
+
+    def _update_progress(self, value):
+        def _inner():
+            self.progress["value"] = value
+        self.root.after(0, _inner)
+
+    def _clear_tables(self):
+        for table in (self.table_dec, self.table_enc):
+            for row in table.get_children():
+                table.delete(row)
+
+    def _update_summary_table(self, table, results, kind):
+        resolutions = list(RESOLUTIONS.keys())
+
+        def _inner():
+            for row in table.get_children():
+                table.delete(row)
+
+            filtered_titles = sorted(
+                [t for t in results.keys() if kind in t]
+            ) or sorted(results.keys())
+
+            for title in filtered_titles:
+                row = [title]
+                for res in resolutions:
+                    status = results.get(title, {}).get(res, "skipped")
+                    if status == "succeeded":
+                        symbol = "✅"   # green cell-like symbol
+                    elif status == "failed":
+                        symbol = "❌"   # red cell-like symbol
+                    else:
+                        symbol = "-"
+                    row.append(symbol)
+                table.insert("", "end", values=row)
+
+        self.root.after(0, _inner)
+
+
+def launch_gui(args):
+    root = tk.Tk()
+    root.title("HwCodecDetect - Hardware Video Codec Detection Tool")
+
+    app = HwCodecGUI(root, args)
+    root.mainloop()
+
+
 def main():
     """Parses arguments and runs the test suite."""
     
@@ -641,11 +861,23 @@ def main():
 
     parser.add_argument(
         '--verbose',
-        action='store_true', 
+        action='store_true',
         help='Print detailed information for each test'
     )
 
+    parser.add_argument(
+        "-ui", "--ui",
+        action="store_true",
+        default=True,
+        help="Launch GUI"
+    )
+
     args = parser.parse_args()
+
+    if args.ui:
+        launch_gui(args)
+        return
+
     run_all_tests(args)
 
 if __name__ == "__main__":
