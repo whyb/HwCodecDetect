@@ -3,7 +3,7 @@ name: PyInstaller Build and Release Binaries
 on:
   push:
     tags: [ "v*.*.*" ]
-    branches: [ "main", "testci" ]
+    branches: [ "main", "testci", "ui" ]
   workflow_dispatch:
 
 permissions:
