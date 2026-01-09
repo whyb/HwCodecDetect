@@ -815,7 +815,7 @@ def get_launch_method():
                 return "unknown"
             parent_name = parent.name().lower()
             shell_procs = ["cmd.exe", "powershell.exe", "pwsh.exe", "windows terminal", "wt.exe"]
-            if parent_name == "explorer.exe":
+            if parent_name == "explorer.exe" or "hwcodecdetect" in parent_name:
                 return "double_click"
             elif any(shell in parent_name for shell in shell_procs):
                 return "terminal"
