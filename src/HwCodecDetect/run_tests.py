@@ -812,16 +812,22 @@ def get_launch_method():
             current_process = psutil.Process(os.getpid())
             parent = current_process.parent()
             if parent is None:
+                print("launch_method: unknown")
                 return "unknown"
+            print("parent name:", parent.name())
             parent_name = parent.name().lower()
             shell_procs = ["cmd.exe", "powershell.exe", "pwsh.exe", "windows terminal", "wt.exe"]
             if parent_name == "explorer.exe" or "hwcodecdetect" in parent_name:
+                print("launch_method: double_click")
                 return "double_click"
             elif any(shell in parent_name for shell in shell_procs):
+                print("launch_method: terminal")
                 return "terminal"
             else:
+                print("launch_method: other")
                 return f"other ({parent_name})"
         except Exception as e:
+            print(f"error: {e}")
             return f"error: {e}"
     else:
         import ctypes
