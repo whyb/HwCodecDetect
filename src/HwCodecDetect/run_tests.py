@@ -806,40 +806,6 @@ def launch_gui(args):
     root.mainloop()
 
 
-def get_launch_method():
-    if PSUTIL_AVAILABLE:
-        try:
-            current_process = psutil.Process(os.getpid())
-            parent = current_process.parent()
-            if parent is None:
-                print("launch_method: unknown")
-                return "unknown"
-            print("parent name:", parent.name())
-            parent_name = parent.name().lower()
-            shell_procs = ["cmd.exe", "powershell.exe", "pwsh.exe", "windows terminal", "wt.exe"]
-            if parent_name == "explorer.exe" or "hwcodecdetect" in parent_name:
-                print("launch_method: double_click")
-                return "double_click"
-            elif any(shell in parent_name for shell in shell_procs):
-                print("launch_method: terminal")
-                return "terminal"
-            else:
-                print("launch_method: other")
-                return f"other ({parent_name})"
-        except Exception as e:
-            print(f"error: {e}")
-            return f"error: {e}"
-    else:
-        import ctypes
-        kernel32 = ctypes.windll.kernel32
-        h_std_out = kernel32.GetStdHandle(-11)
-        pids = (ctypes.c_uint * 10)()
-        count = kernel32.GetConsoleProcessList(pids, 10)
-        if count <= 1:
-            return "double_click"
-        return "terminal"
-
-
 def main():
     """Parses arguments and runs the test suite."""
     
@@ -900,10 +866,10 @@ def main():
     )
 
     parser.add_argument(
-        "-ui", "--ui",
-        action="store_true",
-        default=(get_launch_method() == "double_click"),
-        help="Launch GUI"
+        "--ui",
+        action='store_true',
+        default=True,
+        help="Launch GUI(Default: True)"
     )
 
     args = parser.parse_args()
