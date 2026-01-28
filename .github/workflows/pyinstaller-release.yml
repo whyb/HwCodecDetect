@@ -11,7 +11,7 @@ permissions:
   discussions: write
 
 env:
-  APP_NAME: "HwCodecDetect"
+  BASE_APP_NAME: "HwCodecDetect"
   ENTRY_POINT_SCRIPT: "launcher.py"
 
 jobs:
@@ -22,57 +22,109 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- Windows ---
+          # ======================== MAIN BRANCH (CLI) ========================
           - os: windows-latest
             python_arch: 'x64'
-            artifact_name: HwCodecDetect-Windows-x64.exe
             asset_name: HwCodecDetect-Windows-x64.exe
             job_type: native
+            branch_mode: main
 
           - os: windows-latest
-            python_arch: 'x86' # 32bit Windows
-            artifact_name: HwCodecDetect-Windows-x86.exe
+            python_arch: 'x86'
             asset_name: HwCodecDetect-Windows-x86.exe
             job_type: native
+            branch_mode: main
 
-          # --- macOS ---
-          - os: macos-15-intel       # Intel Macs (runs on x86_64)
+          - os: macos-15-intel
             python_arch: 'x64'
-            artifact_name: HwCodecDetect-macOS-Intel
             asset_name: HwCodecDetect-macOS-Intel
             job_type: native
+            branch_mode: main
 
-          - os: macos-latest   # Apple Silicon (runs on arm64/M1/M2)
+          - os: macos-latest
             python_arch: 'arm64'
-            artifact_name: HwCodecDetect-macOS-ARM64
             asset_name: HwCodecDetect-macOS-ARM64
             job_type: native
+            branch_mode: main
 
-          # --- Linux Native (x64) ---
           - os: ubuntu-22.04
             python_arch: 'x64'
-            artifact_name: HwCodecDetect-Linux-x64
             asset_name: HwCodecDetect-Linux-x64
             job_type: native
+            branch_mode: main
 
-          # --- Linux Emulated (ARM64 / aarch64) ---
           - os: ubuntu-22.04
             job_type: emulated
             qemu_arch: aarch64
             docker_img: python:3.10-bullseye
-            artifact_name: HwCodecDetect-Linux-arm64
             asset_name: HwCodecDetect-Linux-arm64
+            branch_mode: main
 
-          # --- Linux Emulated (x86 / i386) ---
           - os: ubuntu-22.04
             job_type: emulated
             qemu_arch: i386
             docker_img: i386/python:3.10-slim-bullseye
-            artifact_name: HwCodecDetect-Linux-x86
             asset_name: HwCodecDetect-Linux-x86
+            branch_mode: main
+
+          # ======================== UI BRANCH (GUI) ========================
+          - os: windows-latest
+            python_arch: 'x64'
+            asset_name: HwCodecDetect-GUI-Windows-x64.exe
+            job_type: native
+            branch_mode: ui
+
+          - os: windows-latest
+            python_arch: 'x86'
+            asset_name: HwCodecDetect-GUI-Windows-x86.exe
+            job_type: native
+            branch_mode: ui
+
+          - os: macos-15-intel
+            python_arch: 'x64'
+            asset_name: HwCodecDetect-GUI-macOS-Intel
+            job_type: native
+            branch_mode: ui
+
+          - os: macos-latest
+            python_arch: 'arm64'
+            asset_name: HwCodecDetect-GUI-macOS-ARM64
+            job_type: native
+            branch_mode: ui
+
+          - os: ubuntu-22.04
+            python_arch: 'x64'
+            asset_name: HwCodecDetect-GUI-Linux-x64
+            job_type: native
+            branch_mode: ui
+
+          - os: ubuntu-22.04
+            job_type: emulated
+            qemu_arch: aarch64
+            docker_img: python:3.10-bullseye
+            asset_name: HwCodecDetect-GUI-Linux-arm64
+            branch_mode: ui
+
+          - os: ubuntu-22.04
+            job_type: emulated
+            qemu_arch: i386
+            docker_img: i386/python:3.10-slim-bullseye
+            asset_name: HwCodecDetect-GUI-Linux-x86
+            branch_mode: ui
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ matrix.branch_mode }}
+
+    - name: Set App Name
+      shell: bash
+      run: |
+        if [ "${{ matrix.branch_mode }}" == "ui" ]; then
+          echo "APP_NAME_INTERNAL=${{ env.BASE_APP_NAME }}-GUI" >> $GITHUB_ENV
+        else
+          echo "APP_NAME_INTERNAL=${{ env.BASE_APP_NAME }}" >> $GITHUB_ENV
+        fi
 
     - name: Create Entry Point Script
       shell: bash
@@ -106,7 +158,7 @@ jobs:
 
         if [ "$RUNNER_OS" == "Windows" ]; then SEP=";"; else SEP=":"; fi
         
-        pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+        pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \
           --add-data "VERSION${SEP}." \
           --paths ".$SEP" \
           --distpath dist \
@@ -126,53 +178,35 @@ jobs:
         
         run: |
           cd /work
-
-          apt-get update && apt-get install -y --no-install-recommends \
-            build-essential gcc zlib1g-dev git
-
+          apt-get update && apt-get install -y --no-install-recommends build-essential gcc zlib1g-dev git
           python3 -m pip install --upgrade pip
           pip install build wheel setuptools pyinstaller
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install .
           
-          pyinstaller --clean --onefile --name ${{ env.APP_NAME }} \
+          pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \
             --add-data "VERSION:." \
             --paths . \
             --distpath dist \
             --workpath build \
             "${{ env.ENTRY_POINT_SCRIPT }}"
-
           chmod -R 777 dist/
 
     - name: Rename Artifacts (Standardize)
       shell: bash
       run: |
         cd dist || exit 1
-        
-        if [ -f "${{ env.APP_NAME }}.exe" ]; then
-            mv "${{ env.APP_NAME }}.exe" "${{ matrix.artifact_name }}"
-        elif [ -f "${{ env.APP_NAME }}" ]; then
-            mv "${{ env.APP_NAME }}" "${{ matrix.artifact_name }}"
-        else
-            echo "Error: Could not find build artifact!"
-            ls -la
-            exit 1
+        if [ -f "${{ env.APP_NAME_INTERNAL }}.exe" ]; then
+            mv "${{ env.APP_NAME_INTERNAL }}.exe" "${{ matrix.asset_name }}"
+        elif [ -f "${{ env.APP_NAME_INTERNAL }}" ]; then
+            mv "${{ env.APP_NAME_INTERNAL }}" "${{ matrix.asset_name }}"
         fi
-
-    - name: Test Binary (Smoke Test)
-      shell: bash
-      if: matrix.job_type == 'native' 
-      run: |
-        echo "Testing binary execution..."
-        chmod +x ./dist/${{ matrix.artifact_name }}
-        ./dist/${{ matrix.artifact_name }} --help || echo "Binary ran with exit code $?"
-        ./dist/${{ matrix.artifact_name }} --version || echo "Binary ran with exit code $?"
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.asset_name }}
-        path: dist/${{ matrix.artifact_name }}
+        path: dist/${{ matrix.asset_name }}
         if-no-files-found: error
 
   create-release:
@@ -186,30 +220,15 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Display structure
-        run: ls -R artifacts
-
-      - name: Get Meta Data
-        id: vars
-        run: |
-          echo "date=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-
       - name: Create Release (Draft)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "${{ github.ref_name }}"
           body: |
-            Automated multi-platform build.
-            Commit: ${{ github.sha }}
-            
-            ### Supported Platforms:
-            - **Windows**: x64, x86 (32-bit)
-            - **macOS**: Apple Silicon (ARM64), Intel
-            - **Linux**: x64, ARM64, x86
-            
-            *Note: Windows ARM users should use the Windows x86 or x64 binary.*
+            Automated multi-platform build for CLI and GUI.
+            - **CLI Version**: main branch
+            - **GUI Version**: ui branch
           draft: true
           prerelease: true
           files: |
