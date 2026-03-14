@@ -9,6 +9,7 @@ import tempfile
 import argparse
 import threading
 import tkinter as tk
+import tkinter.messagebox as messagebox
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from colorama import init, Fore, Style
@@ -596,6 +597,7 @@ class HwCodecGUI:
         self.args = args
         self.stop_requested = False
         self.running = False
+        self.install_log = ""
 
         frame = ttk.LabelFrame(root, text="Settings")
         frame.pack(fill="x", padx=10, pady=10)
@@ -659,6 +661,64 @@ class HwCodecGUI:
             self._clear_tables()
 
     def start_test(self):
+        # 1. check FFmpeg is exists?
+        if not shutil.which("ffmpeg"):
+            self.prompt_install_ffmpeg()
+            return
+
+        # 2. run test flow
+        self._execute_test_flow()
+
+    def prompt_install_ffmpeg(self):
+        title = "Missing Component: FFmpeg Not Found"
+        msg = (
+            "The application requires the FFmpeg core component to access hardware acceleration, "
+            "but it was not detected in your system PATH.\n\n"
+            "Would you like to attempt an automatic download and configuration?\n"
+            "(Supports Windows, Linux, and macOS)\n\n"
+            "If you prefer to install it manually, please visit:\n"
+            "https://ffmpeg.org/download.html"
+        )
+
+        if messagebox.askyesno(title, msg):
+            self.start_button.config(state="disabled")
+            self.progress["mode"] = "indeterminate"
+            self.progress.start()
+
+            t = threading.Thread(target=self.run_install_thread, daemon=True)
+            t.start()
+
+    def run_install_thread(self):
+        def update_ui_after_install(success):
+            self.progress.stop()
+            self.progress["mode"] = "determinate"
+            self.start_button.config(state="normal")
+
+            if success:
+                messagebox.showinfo(
+                    "Installation Complete",
+                    "FFmpeg environment is now ready! You can click 'Start Test' to detect hardware codec performance."
+                )
+            else:
+                messagebox.showerror(
+                    "Auto-Installation Failed",
+                    "We were unable to complete the automatic installation. This is usually caused by network timeouts or insufficient permissions.\n\n"
+                    "Suggested steps:\n"
+                    "1. Download FFmpeg manually from: https://ffmpeg.org/download.html\n"
+                    "2. Extract and add the 'bin' folder to your system environment variable (PATH)."
+                )
+
+        try:
+            result = install_ffmpeg_if_needed()
+            if result == 0 and shutil.which("ffmpeg"):
+                self.root.after(0, lambda: update_ui_after_install(True))
+            else:
+                self.root.after(0, lambda: update_ui_after_install(False))
+        except Exception as e:
+            print(f"Installation error: {e}")
+            self.root.after(0, lambda: update_ui_after_install(False))
+
+    def _execute_test_flow(self):
         enc = self._safe_count(self.encoder_var, default=self.args.encoder_count)
         dec = self._safe_count(self.decoder_var, default=self.args.decoder_count)
         self.args.encoder_count = enc
