@@ -12,6 +12,7 @@ import tkinter as tk
 import tkinter.messagebox as messagebox
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
+from .bitdepth_chroma_detect import run_bitdepth_chroma_tests, print_bitdepth_chroma_results
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -580,6 +581,16 @@ def run_all_tests(args):
     
     _print_summary_table(all_results)
     
+    # Run bit-depth and chroma tests if enabled
+    if getattr(args, 'bitdepth_chroma', True):
+        print("\n" + "=" * 60)
+        print("Starting Bit-depth and Chroma Subsampling Detection...")
+        print("=" * 60)
+        bd_encoder_results, bd_decoder_results = run_bitdepth_chroma_tests(
+            args.encoder_count, args.decoder_count, args.verbose
+        )
+        print_bitdepth_chroma_results(bd_encoder_results, bd_decoder_results)
+
     print("\nCleaning up temporary files...")
     shutil.rmtree(temp_dir)
     print("Cleanup complete.")
@@ -926,14 +937,16 @@ def main():
     )
 
     parser.add_argument(
-        "--ui",
+        '--no-bitdepth-chroma',
         action='store_true',
-        default=True,
-        help="Launch GUI(Default: True)"
+        dest='no_bitdepth_chroma',
+        help='Disable bit-depth and chroma subsampling detection (enabled by default)'
     )
 
     args = parser.parse_args()
-
+    # Set bitdepth_chroma to True unless --no-bitdepth-chroma is specified
+    args.bitdepth_chroma = not args.no_bitdepth_chroma
+    
     if args.ui:
         launch_gui(args)
         return

@@ -48,6 +48,26 @@ The script automatically detect and reports on the following major hardware deco
 | Vulkan                                  	| H.264、H.265、AV1                                            |
 | Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4                                 |
 
+### Bit-depth and Chroma Subsampling Detection
+In addition to resolution-based testing, the tool now includes comprehensive bit-depth and chroma subsampling detection. This feature tests hardware codec support for different pixel formats, helping you understand the full capabilities of your hardware encoders and decoders.
+
+The detection covers the following pixel formats:
+| Bit-depth | Chroma Subsampling | Pixel Format | Description |
+|-----------|-------------------|--------------|-------------|
+| 8-bit | YUV 4:2:0 | yuv420p | Standard 8-bit 4:2:0 |
+| 8-bit | YUV 4:2:2 | yuv422p | 8-bit 4:2:2 |
+| 8-bit | YUV 4:4:4 | yuv444p | 8-bit 4:4:4 |
+| 10-bit | YUV 4:2:0 | yuv420p10le, p010le | 10-bit 4:2:0 |
+| 10-bit | YUV 4:2:2 | yuv422p10le | 10-bit 4:2:2 |
+| 10-bit | YUV 4:4:4 | yuv444p10le | 10-bit 4:4:4 |
+| 12-bit | YUV 4:2:0 | yuv420p12le | 12-bit 4:2:0 |
+| 12-bit | YUV 4:2:2 | yuv422p12le | 12-bit 4:2:2 |
+| 12-bit | YUV 4:4:4 | yuv444p12le | 12-bit 4:4:4 |
+
+This feature uses a fixed resolution of 1280x720 for all tests and follows the encode-then-decode workflow. If hardware encoding fails, the tool automatically falls back to software encoding to ensure decoder tests can still be performed.
+
+**Note:** This feature is enabled by default. You can disable it using the `--no-bitdepth-chroma` command-line parameter.
+
 
 ## How to Use
 You can install and use HwCodecDetect in two ways.

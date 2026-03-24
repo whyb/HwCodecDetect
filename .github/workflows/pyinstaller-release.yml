@@ -226,9 +226,15 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "${{ github.ref_name }}"
           body: |
-            Automated multi-platform build for CLI and GUI.
+            ### Automated multi-platform build for CLI and GUI.
             - **CLI Version**: main branch
             - **GUI Version**: ui branch
+            ### Supported Platforms:
+            - **Windows**: x64, x86 (32-bit)
+            - **macOS**: Apple Silicon (ARM64), Intel (x64)
+            - **Linux**: x64, ARM64, x86
+
+            *Note: Windows ARM users should use the Windows x86 or x64 binary.*
           draft: true
           prerelease: true
           files: |
