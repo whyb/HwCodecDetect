@@ -1,6 +1,7 @@
 # HwCodecDetect/__init__.py
 import os
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
+from .gui import launch_gui, HwCodecGUI
 
 def _read_version():
     try:
