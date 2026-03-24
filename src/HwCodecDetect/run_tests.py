@@ -668,6 +668,7 @@ def main():
     parser.add_argument(
         '--ui',
         action='store_true',
+        default=True,
         help='Launch the graphical user interface'
     )
 
