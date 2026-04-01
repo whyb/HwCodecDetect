@@ -633,13 +633,11 @@ def main():
     )
 
     try:
-        import version
-        version_str = version.__version__
-    except ImportError:
+        from importlib.metadata import version
+        version_str = version("HwCodecDetect")
+    except Exception:
         try:
-            version_file_path = get_resource_path("VERSION")
-            with open(version_file_path, "r", encoding="utf-8") as f:
-                version_str = f.read().strip()
+            from . import __version__ as version_str
         except Exception:
             version_str = "Unknown"
 
