@@ -108,7 +108,9 @@ ENCODER_TITLES = {
     ("av1_amf", "av1"): "AMD Hardware AV1 Encoder(AMF)",
     ("h264_mf", "h264"): "Microsoft Hardware H264 Encoder(MediaFoundation)",
     ("hevc_mf", "h265"): "Microsoft Hardware H265 Encoder(MediaFoundation)",
+    ("h264_d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Encoder(D3D12VA)",
     ("hevc_d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Encoder(D3D12VA)",
+    ("av1_d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Encoder(D3D12VA)",
     ("h264_vaapi", "h264"): "Video Acceleration H264 Encoder(VAAPI)",
     ("hevc_vaapi", "h265"): "Video Acceleration H265 Encoder(VAAPI)",
     ("av1_vaapi", "av1"): "Video Acceleration AV1 Encoder(VAAPI)",
@@ -123,9 +125,9 @@ ENCODER_TITLES = {
 }
 
 ENCODERS = {
-    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_vaapi", "h264_vulkan", "h264_videotoolbox"]},
+    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_d3d12va", "h264_vaapi", "h264_vulkan", "h264_videotoolbox"]},
     "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_d3d12va", "hevc_vaapi", "hevc_vulkan", "hevc_videotoolbox"]},
-    "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi"]},
+    "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_vaapi", "av1_d3d12va"]},
     "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
