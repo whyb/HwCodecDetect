@@ -174,7 +174,10 @@ def _run_encoder_test_single(test_data):
     import subprocess
     
     codec, encoder, res_name, res_size, test_dir, verbose = test_data
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
     
     if "vulkan" in encoder:
@@ -270,7 +273,10 @@ def _run_decoder_test_single(test_data):
     import subprocess
     
     codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
     found_file = False
@@ -365,8 +371,10 @@ def _run_encoder_bitdepth_test(test_data):
     import shlex
     
     codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-    
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
     
     if bit_depth == 8:
@@ -484,8 +492,10 @@ def _run_decoder_bitdepth_test(test_data):
     import shlex
     
     codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
 
     if not os.path.exists(test_file) or os.path.getsize(test_file) == 0:
