@@ -264,7 +264,10 @@ def _run_ffmpeg_command(command, verbose):
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
     codec, encoder, res_name, res_size, test_dir, verbose = test_data
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
     if "vulkan" in encoder:
         command = [
@@ -379,7 +382,10 @@ def _run_encoder_tests(test_dir, max_workers, verbose):
 def _run_decoder_test_single(test_data):
     """Runs a single decoder test and returns the result."""
     codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
     found_file = False

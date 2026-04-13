@@ -153,8 +153,10 @@ def _run_ffmpeg_command(command, verbose):
 def _run_encoder_bitdepth_test(test_data):
     """Tests encoder support for a specific pixel format."""
     codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-    
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
     
     # Determine pixel format for output based on input format
@@ -296,8 +298,10 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose):
 def _run_decoder_bitdepth_test(test_data):
     """Tests decoder support for a specific pixel format."""
     codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-
-    file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    if codec == "prores":
+        file_ext = ".mov"
+    else:
+        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
 
     # Create test file with specific pixel format if it doesn't exist
