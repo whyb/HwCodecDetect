@@ -78,6 +78,7 @@ DECODER_TITLES = {
     ("videotoolbox", "h265"): "MacOS Hardware H265 Decoder(VideoToolbox)",
     ("videotoolbox", "mpeg2"): "MacOS Hardware MPEG-2 Decoder(VideoToolbox)",
     ("videotoolbox", "mpeg4"): "MacOS Hardware MPEG-4 Decoder(VideoToolbox)",
+    ("videotoolbox", "prores"): "MacOS Hardware ProRes Decoder(VideoToolbox)",
 }
 
 DECODERS = {
@@ -90,6 +91,7 @@ DECODERS = {
     "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va", "videotoolbox"]},
     "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va"]},
     "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va"]},
+    "prores": {"lib": "prores", "hw_decoders": ["videotoolbox"]},
 }
 
 # --- Encoder Definitions ---
@@ -124,6 +126,7 @@ ENCODER_TITLES = {
     ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Encoder(Vulkan)",
     ("h264_videotoolbox", "h264"): "MacOS Hardware H264 Encoder(VideoToolbox)",
     ("hevc_videotoolbox", "h265"): "MacOS Hardware H265 Encoder(VideoToolbox)",
+    ("prores_videotoolbox", "prores"): "MacOS Hardware ProRes Encoder(VideoToolbox)",
 }
 
 ENCODERS = {
@@ -134,6 +137,7 @@ ENCODERS = {
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
     "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
+    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox"]},
 }
 
 # Combine both decoder and encoder data into a single structure
