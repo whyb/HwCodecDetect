@@ -33,7 +33,7 @@ The script automatically detect and reports on the following major hardware enco
 | Media Foundation               	       | H.264、H.265、AV1                          |
 | D3D12VA (Direct3D 12 Video Acceleration) | H.264、H.265、AV1                          |
 | VAAPI (Video Acceleration API) 	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
-| Vulkan                         	       | H.264、H.265                               |
+| Vulkan                         	       | H.264、H.265、AV1                          |
 | Apple VideoToolbox               	       | H.264、H.265                               |
 
 ### Decoders
