@@ -157,8 +157,14 @@ jobs:
         pip install .
 
         if [ "$RUNNER_OS" == "Windows" ]; then SEP=";"; else SEP=":"; fi
+
+        ADD_PARAMS=""
+        if [ "${{ matrix.branch_mode }}" == "ui" ]; then
+          ADD_PARAMS="--noconsole"
+        fi
         
         pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \
+          $ADD_PARAMS \
           --add-data "VERSION${SEP}." \
           --paths ".$SEP" \
           --distpath dist \
