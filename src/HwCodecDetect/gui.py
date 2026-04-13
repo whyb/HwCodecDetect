@@ -12,7 +12,9 @@ import tkinter.messagebox as messagebox
 from collections import defaultdict
 from tkinter import ttk
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import requests
+import webbrowser
+from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from .bitdepth_chroma_detect import (
     run_bitdepth_chroma_tests,
@@ -151,6 +153,9 @@ ALL_CODECS = {
 def _run_ffmpeg_command(command, verbose):
     """Executes an FFmpeg command and returns True on success, False on failure."""
     import subprocess
+    creation_flags = 0
+    if sys.platform == "win32":
+        creation_flags = subprocess.CREATE_NO_WINDOW
     try:
         stdout = subprocess.PIPE if verbose else subprocess.DEVNULL
         stderr = subprocess.PIPE if verbose else subprocess.DEVNULL
@@ -159,6 +164,7 @@ def _run_ffmpeg_command(command, verbose):
             check=True,
             stdout=stdout,
             stderr=stderr,
+            creationflags=creation_flags,
             text=True
         )
         return (result.returncode == 0, result.stdout, result.stderr)
@@ -577,6 +583,15 @@ def _run_decoder_bitdepth_test(test_data):
     key = f"{bit_depth}-bit {chroma}"
     return title, key, status
 
+def get_local_version():
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    v_path = os.path.join(base_path, "VERSION")
+    with open(v_path, "r", encoding="utf-8") as f:
+        return f.read().strip()
 
 class HwCodecGUI:
     def __init__(self, root, args):
@@ -625,6 +640,40 @@ class HwCodecGUI:
         # Create bit-depth/chroma tables
         self.table_dec_bd = self._create_bitdepth_table(self.tab_dec_bd)
         self.table_enc_bd = self._create_bitdepth_table(self.tab_enc_bd)
+
+        # check for update
+        self._check_for_updates_async()
+
+    def _check_for_updates_async(self):
+        """Starts a background thread to check for updates."""
+        version_str = get_local_version()
+        t = threading.Thread(target=self._update_check_thread, args=(version_str,), daemon=True)
+        t.start()
+
+    def _update_check_thread(self, current_version):
+        version_url = "https://raw.githubusercontent.com/whyb/HwCodecDetect/main/VERSION"
+        release_url_base = "https://github.com/whyb/HwCodecDetect/releases/tag/v"
+
+        try:
+            response = requests.get(version_url, timeout=10)
+            response.raise_for_status()
+            latest_version = response.text.strip()
+
+            if version.parse(latest_version) > version.parse(current_version):
+                self.root.after(0, lambda: self._show_update_dialog(current_version, latest_version, release_url_base + latest_version))
+        except Exception as e:
+            print(f"Update check failed: {e}")
+
+    def _show_update_dialog(self, current, latest, url):
+        title = "Update Available"
+        message = (
+            f"A new version of HwCodecDetect is available!\n\n"
+            f"Current Version: v{current}\n"
+            f"Latest Version: v{latest}\n\n"
+            f"Would you like to visit the release page to download it?"
+        )
+        if messagebox.askyesno(title, message):
+            webbrowser.open(url)
 
     def _create_resolution_table(self, parent):
         """Creates a Treeview table for resolution-based results."""
@@ -989,6 +1038,6 @@ class HwCodecGUI:
 def launch_gui(args):
     """Launch the GUI application."""
     root = tk.Tk()
-    root.title("HwCodecDetect - Hardware Video Codec Detection Tool")
+    root.title("HwCodecDetect - Hardware Video Codec Detection Tool - v" + get_local_version())
     app = HwCodecGUI(root, args)
     root.mainloop()
