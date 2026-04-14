@@ -577,8 +577,8 @@ def run_all_tests(args):
         return -1
 
     #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect")
-    import utils
-    temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_cli")
+    from .utils import get_temp_path
+    temp_dir = os.path.join(get_temp_path(), "HwCodecDetect_cli")
     if os.path.exists(temp_dir):
         # Clear previous run data to ensure a fresh test
         shutil.rmtree(temp_dir)

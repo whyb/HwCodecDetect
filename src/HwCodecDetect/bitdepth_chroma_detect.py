@@ -464,8 +464,8 @@ def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose):
     """Run all bit-depth and chroma tests and return results."""
     import shutil
     #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_BitDepth")
-    import utils
-    temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_BitDepth")
+    from .utils import get_temp_path
+    temp_dir = os.path.join(get_temp_path(), "HwCodecDetect_BitDepth")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir, exist_ok=True)

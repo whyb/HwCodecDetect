@@ -1,4 +1,5 @@
 import os
+import os.path
 import tempfile
 import sys
 from pathlib import Path
@@ -41,3 +42,20 @@ def get_temp_path():
 
     return os.getcwd()
 
+
+def get_local_version():
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    v_path = os.path.join(base_path, "VERSION")
+
+    if not os.path.exists(v_path):
+        v_path = os.path.join(base_path, "..", "..", "VERSION")
+
+    try:
+        with open(v_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "Unknown Version"
