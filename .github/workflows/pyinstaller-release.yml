@@ -160,7 +160,7 @@ jobs:
 
         ADD_PARAMS=""
         if [ "${{ matrix.branch_mode }}" == "ui" ]; then
-          ADD_PARAMS="--noconsole"
+          ADD_PARAMS="--noconsole --disable-windowed-traceback"
         fi
         
         pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \

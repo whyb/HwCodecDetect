@@ -463,10 +463,12 @@ def _print_bitdepth_chroma_table(results, table_type="Encoder"):
 def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose):
     """Run all bit-depth and chroma tests and return results."""
     import shutil
-    temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_BitDepth")
+    #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_BitDepth")
+    import utils
+    temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_BitDepth")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
 
     encoder_results = _run_encoder_bitdepth_tests(temp_dir, encoder_count, verbose)
     decoder_results = _run_decoder_bitdepth_tests(temp_dir, decoder_count, verbose)
