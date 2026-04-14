@@ -16,6 +16,7 @@ import requests
 import webbrowser
 from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
+from .utils import get_local_version
 from .bitdepth_chroma_detect import (
     run_bitdepth_chroma_tests,
     PIXEL_FORMATS,
@@ -583,16 +584,6 @@ def _run_decoder_bitdepth_test(test_data):
     key = f"{bit_depth}-bit {chroma}"
     return title, key, status
 
-def get_local_version():
-    if getattr(sys, 'frozen', False):
-        base_path = sys._MEIPASS
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-
-    v_path = os.path.join(base_path, "VERSION")
-    with open(v_path, "r", encoding="utf-8") as f:
-        return f.read().strip()
-
 class HwCodecGUI:
     def __init__(self, root, args):
         self.root = root
@@ -833,8 +824,8 @@ class HwCodecGUI:
 
     def run_tests_thread(self):
         #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_GUI")
-        import utils
-        temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_GUI")
+        from .utils import get_temp_path
+        temp_dir = os.path.join(get_temp_path(), "HwCodecDetect_GUI")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
