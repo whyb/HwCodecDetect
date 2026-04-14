@@ -575,11 +575,13 @@ def run_all_tests(args):
         print("Error: FFmpeg dependency not met. Please check installation.", file=sys.stderr)
         return -1
 
-    temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect")
+    #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect")
+    import utils
+    temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_cli")
     if os.path.exists(temp_dir):
         # Clear previous run data to ensure a fresh test
         shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
         
     encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose)
     decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose)
