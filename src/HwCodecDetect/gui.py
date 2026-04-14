@@ -832,7 +832,9 @@ class HwCodecGUI:
         return v
 
     def run_tests_thread(self):
-        temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_GUI")
+        #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_GUI")
+        import utils
+        temp_dir = os.path.join(utils.get_temp_path(), "HwCodecDetect_GUI")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
