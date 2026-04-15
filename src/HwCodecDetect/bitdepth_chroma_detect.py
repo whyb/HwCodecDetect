@@ -12,6 +12,7 @@ from collections import defaultdict
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from .utils import check_codec_support
 
 init(autoreset=True)
 
@@ -152,13 +153,19 @@ def _run_ffmpeg_command(command, verbose):
 
 def _run_encoder_bitdepth_test(test_data):
     """Tests encoder support for a specific pixel format."""
-    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders = test_data
+
+    # Skip unsupported encoders
+    if encoder in unsupported_encoders:
+        title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+        return title, pix_fmt, bit_depth, chroma, "skipped"
+
     if codec == "prores":
         file_ext = ".mov"
     else:
         file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
-    
+
     # Determine pixel format for output based on input format
     if bit_depth == 8:
         if chroma == "4:2:0":
@@ -270,9 +277,12 @@ def _run_encoder_bitdepth_test(test_data):
     return title, pix_fmt, bit_depth, chroma, status
 
 
-def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose):
+def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_encoders=None):
     """Tests encoder support for various pixel formats."""
     results = defaultdict(dict)
+
+    if unsupported_encoders is None:
+        unsupported_encoders = set()
 
     print("\n--- Running Bit-depth/Chroma Encoder Tests ---")
 
@@ -280,7 +290,7 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose):
     for codec, info in ENCODERS.items():
         for encoder in info['hw_encoders']:
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose))
+                tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_run_encoder_bitdepth_test, task) for task in tasks]
@@ -297,7 +307,13 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose):
 
 def _run_decoder_bitdepth_test(test_data):
     """Tests decoder support for a specific pixel format."""
-    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders = test_data
+
+    # Skip unsupported decoders
+    if hw_decoder in unsupported_decoders:
+        title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+        return title, pix_fmt, bit_depth, chroma, "skipped"
+
     if codec == "prores":
         file_ext = ".mov"
     else:
@@ -383,9 +399,12 @@ def _run_decoder_bitdepth_test(test_data):
     return title, pix_fmt, bit_depth, chroma, status
 
 
-def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose):
+def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_decoders=None):
     """Tests decoder support for various pixel formats."""
     results = defaultdict(dict)
+
+    if unsupported_decoders is None:
+        unsupported_decoders = set()
 
     print("\n--- Running Bit-depth/Chroma Decoder Tests ---")
 
@@ -393,7 +412,7 @@ def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose):
     for codec, info in DECODERS.items():
         for hw_decoder in info['hw_decoders']:
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose))
+                tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders))
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_run_decoder_bitdepth_test, task) for task in tasks]
@@ -470,8 +489,17 @@ def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose):
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir, exist_ok=True)
 
-    encoder_results = _run_encoder_bitdepth_tests(temp_dir, encoder_count, verbose)
-    decoder_results = _run_decoder_bitdepth_tests(temp_dir, decoder_count, verbose)
+    # Check codec support before running tests
+    print("\nChecking FFmpeg codec support for bit-depth/chroma tests...")
+    unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
+    if unsupported_encoders or unsupported_decoders:
+        print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
+        print("These codecs will be marked as unavailable '-' in the results.\n")
+    else:
+        print("All defined hardware codecs are supported.\n")
+
+    encoder_results = _run_encoder_bitdepth_tests(temp_dir, encoder_count, verbose, unsupported_encoders)
+    decoder_results = _run_decoder_bitdepth_tests(temp_dir, decoder_count, verbose, unsupported_decoders)
 
     # Clean up
     shutil.rmtree(temp_dir)

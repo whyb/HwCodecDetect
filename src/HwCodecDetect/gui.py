@@ -16,7 +16,7 @@ import requests
 import webbrowser
 from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
-from .utils import get_local_version
+from .utils import get_local_version, check_codec_support
 from .bitdepth_chroma_detect import (
     run_bitdepth_chroma_tests,
     PIXEL_FORMATS,
@@ -158,13 +158,12 @@ def _run_ffmpeg_command(command, verbose):
     if sys.platform == "win32":
         creation_flags = subprocess.CREATE_NO_WINDOW
     try:
-        stdout = subprocess.PIPE if verbose else subprocess.DEVNULL
-        stderr = subprocess.PIPE if verbose else subprocess.DEVNULL
+        # Always capture stdout and stderr to get error messages on failure
         result = subprocess.run(
             command,
             check=True,
-            stdout=stdout,
-            stderr=stderr,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             creationflags=creation_flags,
             text=True
         )
@@ -190,7 +189,7 @@ def _run_encoder_test_single(test_data):
     if "vulkan" in encoder:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-init_hw_device", "vulkan=vk:0",
@@ -204,7 +203,7 @@ def _run_encoder_test_single(test_data):
     elif "d3d12va" in encoder:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-init_hw_device", "d3d12va:0",
@@ -218,7 +217,7 @@ def _run_encoder_test_single(test_data):
     else:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-f", "lavfi",
@@ -271,7 +270,10 @@ def _run_encoder_test_single(test_data):
         print(log_message)
 
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
-    return title, res_name, status
+    command_str = " ".join(shlex.quote(arg) for arg in command)
+    error_detail = stderr if stderr else stdout if stdout else "Unknown error"
+    error_msg = f"{command_str}\n\n{error_detail}"
+    return title, res_name, status, error_msg
 
 
 def _run_decoder_test_single(test_data):
@@ -298,18 +300,18 @@ def _run_decoder_test_single(test_data):
     if not found_file:
         cpu_lib = ALL_CODECS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
         ]
         if not _run_ffmpeg_command(command, verbose)[0]:
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
-            return title, res_name, "skipped"
+            return title, res_name, "skipped", "Failed to create test file"
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
@@ -318,21 +320,21 @@ def _run_decoder_test_single(test_data):
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file_path,
             "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -370,7 +372,10 @@ def _run_decoder_test_single(test_data):
         print(log_message)
 
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
-    return title, res_name, status
+    command_str = " ".join(shlex.quote(arg) for arg in command)
+    error_detail = stderr if stderr else stdout if stdout else "Unknown error"
+    error_msg = f"{command_str}\n\n{error_detail}"
+    return title, res_name, status, error_msg
 
 
 def _run_encoder_bitdepth_test(test_data):
@@ -409,7 +414,7 @@ def _run_encoder_bitdepth_test(test_data):
     if "vulkan" in encoder:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-init_hw_device", "vulkan=vk:0",
@@ -423,7 +428,7 @@ def _run_encoder_bitdepth_test(test_data):
     elif "d3d12va" in encoder:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-init_hw_device", "d3d12va:0",
@@ -437,7 +442,7 @@ def _run_encoder_bitdepth_test(test_data):
     else:
         command = [
             "ffmpeg",
-            "-loglevel", "quiet",
+            "-loglevel", "error",
             "-hide_banner",
             "-y",
             "-f", "lavfi",
@@ -491,7 +496,10 @@ def _run_encoder_bitdepth_test(test_data):
 
     title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     key = f"{bit_depth}-bit {chroma}"
-    return title, key, status
+    command_str = " ".join(shlex.quote(arg) for arg in command)
+    error_detail = stderr if stderr else stdout if stdout else "Unknown error"
+    error_msg = f"{command_str}\n\n{error_detail}"
+    return title, key, status, error_msg
 
 
 def _run_decoder_bitdepth_test(test_data):
@@ -508,7 +516,7 @@ def _run_decoder_bitdepth_test(test_data):
     if not os.path.exists(test_file) or os.path.getsize(test_file) == 0:
         cpu_lib = BD_DECODERS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pix_fmt", pix_fmt,
             test_file,
@@ -516,11 +524,11 @@ def _run_decoder_bitdepth_test(test_data):
         if not _run_ffmpeg_command(command, verbose)[0]:
             title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             key = f"{bit_depth}-bit {chroma}"
-            return title, key, "skipped"
+            return title, key, "skipped", "Failed to create test file"
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
@@ -529,21 +537,21 @@ def _run_decoder_bitdepth_test(test_data):
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file,
             "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va"]:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -582,7 +590,42 @@ def _run_decoder_bitdepth_test(test_data):
 
     title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     key = f"{bit_depth}-bit {chroma}"
-    return title, key, status
+    command_str = " ".join(shlex.quote(arg) for arg in command)
+    error_detail = stderr if stderr else stdout if stdout else "Unknown error"
+    error_msg = f"{command_str}\n\n{error_detail}"
+    return title, key, status, error_msg
+
+class Tooltip:
+    """Tooltip class for displaying hover information."""
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show)
+        self.widget.bind("<Leave>", self.hide)
+
+    def show(self, event=None):
+        if self.tooltip:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        self.tooltip = tk.Toplevel(self.widget)
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(self.tooltip, text=self.text, justify='left',
+                        background="#ffffe0", relief='solid', borderwidth=1,
+                        wraplength=400, padx=5, pady=5)
+        label.pack()
+
+    def hide(self, event=None):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
+    def update_text(self, text):
+        self.text = text
+
 
 class HwCodecGUI:
     def __init__(self, root, args):
@@ -590,6 +633,7 @@ class HwCodecGUI:
         self.args = args
         self.stop_requested = False
         self.running = False
+        self.tooltip_data = {}  # Store tooltip data for each cell
 
         frame = ttk.LabelFrame(root, text="Settings")
         frame.pack(fill="x", padx=10, pady=10)
@@ -609,25 +653,25 @@ class HwCodecGUI:
         self.progress.pack(fill="x", padx=10, pady=10)
 
         self.notebook = ttk.Notebook(root)
-        
+
         # Resolution-based tabs
         self.tab_dec_res = ttk.Frame(self.notebook)
         self.tab_enc_res = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_dec_res, text="Decoders (Resolution)")
         self.notebook.add(self.tab_enc_res, text="Encoders (Resolution)")
-        
+
         # Bit-depth/Chroma tabs
         self.tab_dec_bd = ttk.Frame(self.notebook)
         self.tab_enc_bd = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_dec_bd, text="Decoders (Bit-depth/Chroma)")
         self.notebook.add(self.tab_enc_bd, text="Encoders (Bit-depth/Chroma)")
-        
+
         self.notebook.pack(expand=True, fill="both", padx=10, pady=10, ipady=200)
 
         # Create resolution tables
         self.table_dec_res = self._create_resolution_table(self.tab_dec_res)
         self.table_enc_res = self._create_resolution_table(self.tab_enc_res)
-        
+
         # Create bit-depth/chroma tables
         self.table_dec_bd = self._create_bitdepth_table(self.tab_dec_bd)
         self.table_enc_bd = self._create_bitdepth_table(self.tab_enc_bd)
@@ -691,6 +735,9 @@ class HwCodecGUI:
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
 
+        # Bind click event to show details
+        tree.bind("<ButtonRelease-1>", lambda e: self._on_resolution_cell_click(e, tree))
+
         return tree
 
     def _create_bitdepth_table(self, parent):
@@ -710,7 +757,7 @@ class HwCodecGUI:
             "12-bit 4:2:2",
             "12-bit 4:4:4",
         ]
-        
+
         columns = ["Codec"] + format_columns
 
         tree = ttk.Treeview(container, columns=columns, show="headings")
@@ -729,6 +776,9 @@ class HwCodecGUI:
 
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
+
+        # Bind click event to show details
+        tree.bind("<ButtonRelease-1>", lambda e: self._on_bitdepth_cell_click(e, tree))
 
         return tree
 
@@ -830,26 +880,35 @@ class HwCodecGUI:
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
 
+        # Check codec support before running tests
+        print("\nChecking FFmpeg codec support...")
+        unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
+        if unsupported_encoders or unsupported_decoders:
+            print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
+            print("These codecs will be marked as unavailable '-' in the results.\n")
+        else:
+            print("All defined hardware codecs are supported.\n")
+
         encoder_results = defaultdict(dict)
         decoder_results = defaultdict(dict)
         bd_encoder_results = defaultdict(dict)
         bd_decoder_results = defaultdict(dict)
 
-        # Calculate total tasks
+        # Calculate total tasks (excluding unsupported codecs)
         total_enc_tasks = sum(
-            len(info["hw_encoders"]) * len(RESOLUTIONS)
+            len([e for e in info["hw_encoders"] if e not in unsupported_encoders]) * len(RESOLUTIONS)
             for info in ENCODERS.values()
         )
         total_dec_tasks = sum(
-            len(info["hw_decoders"]) * len(RESOLUTIONS)
+            len([d for d in info["hw_decoders"] if d not in unsupported_decoders]) * len(RESOLUTIONS)
             for info in DECODERS.values()
         )
         total_bd_enc_tasks = sum(
-            len(info["hw_encoders"]) * len(PIXEL_FORMATS)
+            len([e for e in info["hw_encoders"] if e not in unsupported_encoders]) * len(PIXEL_FORMATS)
             for info in BD_ENCODERS.values()
         )
         total_bd_dec_tasks = sum(
-            len(info["hw_decoders"]) * len(PIXEL_FORMATS)
+            len([d for d in info["hw_decoders"] if d not in unsupported_decoders]) * len(PIXEL_FORMATS)
             for info in BD_DECODERS.values()
         )
         total_tasks = total_enc_tasks + total_dec_tasks + total_bd_enc_tasks + total_bd_dec_tasks
@@ -859,6 +918,12 @@ class HwCodecGUI:
         enc_tasks = []
         for codec, info in ENCODERS.items():
             for encoder in info["hw_encoders"]:
+                if encoder in unsupported_encoders:
+                    # Mark as skipped for all resolutions
+                    title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    for res_name in RESOLUTIONS.keys():
+                        encoder_results[title][res_name] = ("skipped", "This codec is not supported by current FFmpeg version")
+                    continue
                 for res_name, res_size in RESOLUTIONS.items():
                     enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False))
 
@@ -870,8 +935,8 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, res_name, status = f.result()
-                encoder_results[title][res_name] = status
+                title, res_name, status, error_msg = f.result()
+                encoder_results[title][res_name] = (status, error_msg)
                 done_tasks += 1
                 self._update_progress(int(done_tasks * 100 / total_tasks))
 
@@ -879,6 +944,12 @@ class HwCodecGUI:
         dec_tasks = []
         for codec, info in DECODERS.items():
             for hw_decoder in info["hw_decoders"]:
+                if hw_decoder in unsupported_decoders:
+                    # Mark as skipped for all resolutions
+                    title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    for res_name in RESOLUTIONS.keys():
+                        decoder_results[title][res_name] = "skipped"
+                    continue
                 for res_name, res_size in RESOLUTIONS.items():
                     dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False))
 
@@ -890,8 +961,8 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, res_name, status = f.result()
-                decoder_results[title][res_name] = status
+                title, res_name, status, error_msg = f.result()
+                decoder_results[title][res_name] = (status, error_msg)
                 done_tasks += 1
                 self._update_progress(int(done_tasks * 100 / total_tasks))
 
@@ -899,6 +970,13 @@ class HwCodecGUI:
         bd_enc_tasks = []
         for codec, info in BD_ENCODERS.items():
             for encoder in info["hw_encoders"]:
+                if encoder in unsupported_encoders:
+                    # Mark as skipped for all formats
+                    title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
+                        key = f"{bit_depth}-bit {chroma}"
+                        bd_encoder_results[title][key] = "skipped"
+                    continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_enc_tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, temp_dir, False))
 
@@ -910,8 +988,8 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, key, status = f.result()
-                bd_encoder_results[title][key] = status
+                title, key, status, error_msg = f.result()
+                bd_encoder_results[title][key] = (status, error_msg)
                 done_tasks += 1
                 self._update_progress(int(done_tasks * 100 / total_tasks))
 
@@ -919,6 +997,13 @@ class HwCodecGUI:
         bd_dec_tasks = []
         for codec, info in BD_DECODERS.items():
             for hw_decoder in info["hw_decoders"]:
+                if hw_decoder in unsupported_decoders:
+                    # Mark as skipped for all formats
+                    title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
+                        key = f"{bit_depth}-bit {chroma}"
+                        bd_decoder_results[title][key] = ("skipped", "This codec is not supported by current FFmpeg version")
+                    continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_dec_tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, temp_dir, False))
 
@@ -930,8 +1015,8 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, key, status = f.result()
-                bd_decoder_results[title][key] = status
+                title, key, status, error_msg = f.result()
+                bd_decoder_results[title][key] = (status, error_msg)
                 done_tasks += 1
                 self._update_progress(int(done_tasks * 100 / total_tasks))
 
@@ -965,6 +1050,91 @@ class HwCodecGUI:
             for row in table.get_children():
                 table.delete(row)
 
+    def _on_resolution_cell_click(self, event, table):
+        """Handle click on resolution table cell to show error details."""
+        region = table.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+
+        row_id = table.identify_row(event.y)
+        col = table.identify_column(event.x)
+
+        if col == "#1":
+            return
+
+        # Get row index and column index
+        item = table.item(row_id)
+        values = item["values"]
+        if not values:
+            return
+
+        codec_name = values[0]
+        col_idx = int(col[1:]) - 2  # Convert #n to 0-based index (skip Codec column)
+
+        if col_idx < 0 or col_idx >= len(RESOLUTIONS):
+            return
+
+        res_name = list(RESOLUTIONS.keys())[col_idx]
+
+        # Get the stored result with error message
+        result = self.tooltip_data.get((table, codec_name, res_name))
+        if result:
+            status, error_msg = result
+            if status == "failed":
+                # Show error message in a popup
+                self._show_error_popup(codec_name, res_name, error_msg)
+            elif status == "skipped":
+                # Show "not supported" message
+                self._show_error_popup(codec_name, res_name, "This codec is not supported by current FFmpeg version")
+    
+    def _show_error_popup(self, codec_name, res_name, error_msg):
+        """Show error details in a popup window."""
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Error Details - {codec_name}")
+        popup.transient(self.root)
+        popup.grab_set()
+
+        # Set window size
+        window_width = 600
+        window_height = 400
+
+        # Get main window position and size
+        main_x = self.root.winfo_x()
+        main_y = self.root.winfo_y()
+        main_width = self.root.winfo_width()
+        main_height = self.root.winfo_height()
+
+        # Calculate center position relative to main window
+        center_x = main_x + (main_width - window_width) // 2
+        center_y = main_y + (main_height - window_height) // 2
+
+        # Set geometry with position
+        popup.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}")
+
+        # Title
+        ttk.Label(popup, text=f"Codec: {codec_name}", font=("Arial", 10, "bold")).pack(pady=(10, 0))
+        ttk.Label(popup, text=f"Resolution/Format: {res_name}", font=("Arial", 10)).pack(pady=(0, 10))
+
+        # Separator
+        ttk.Separator(popup, orient="horizontal").pack(fill="x", padx=10, pady=5)
+
+        # Error message in a scrolled text widget
+        frame = ttk.Frame(popup)
+        frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        scrollbar = ttk.Scrollbar(frame)
+        scrollbar.pack(side="right", fill="y")
+
+        text_widget = tk.Text(frame, wrap="word", yscrollcommand=scrollbar.set, font=("Consolas", 9))
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+
+        text_widget.insert("1.0", error_msg)
+        text_widget.config(state="disabled")
+
+        # Close button
+        ttk.Button(popup, text="Close", command=popup.destroy).pack(pady=10)
+
     def _update_resolution_table(self, table, results, kind):
         resolutions = list(RESOLUTIONS.keys())
 
@@ -978,8 +1148,18 @@ class HwCodecGUI:
 
             for title in filtered_titles:
                 row = [title]
-                for res in resolutions:
-                    status = results.get(title, {}).get(res, "skipped")
+                for i, res in enumerate(resolutions):
+                    result = results.get(title, {}).get(res, "skipped")
+                    # Handle both old format (just status) and new format (status, error_msg)
+                    if isinstance(result, tuple):
+                        status, error_msg = result
+                    else:
+                        status = result
+                        error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
+
+                    # Store in tooltip_data for click handling
+                    self.tooltip_data[(table, title, res)] = (status, error_msg)
+
                     if status == "succeeded":
                         symbol = "✅"
                     elif status == "failed":
@@ -990,6 +1170,47 @@ class HwCodecGUI:
                 table.insert("", "end", values=row)
 
         self.root.after(0, _inner)
+
+    def _on_bitdepth_cell_click(self, event, table):
+        """Handle click on bitdepth table cell to show error details."""
+        region = table.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+
+        row_id = table.identify_row(event.y)
+        col = table.identify_column(event.x)
+
+        if col == "#1":
+            return
+
+        # Get row index and column index
+        item = table.item(row_id)
+        values = item["values"]
+        if not values:
+            return
+
+        codec_name = values[0]
+        col_idx = int(col[1:]) - 2  # Convert #n to 0-based index (skip Codec column)
+
+        format_columns = [
+            "8-bit 4:2:0", "8-bit 4:2:2", "8-bit 4:4:4",
+            "10-bit 4:2:0", "10-bit 4:2:2", "10-bit 4:4:4",
+            "12-bit 4:2:0", "12-bit 4:2:2", "12-bit 4:4:4",
+        ]
+
+        if col_idx < 0 or col_idx >= len(format_columns):
+            return
+
+        format_name = format_columns[col_idx]
+
+        # Get the stored result with error message
+        result = self.tooltip_data.get((table, codec_name, format_name))
+        if result:
+            status, error_msg = result
+            if status == "failed":
+                self._show_error_popup(codec_name, format_name, error_msg)
+            elif status == "skipped":
+                self._show_error_popup(codec_name, format_name, "This codec is not supported by current FFmpeg version")
 
     def _update_bitdepth_table(self, table, results, kind):
         format_columns = [
@@ -1014,8 +1235,18 @@ class HwCodecGUI:
 
             for title in filtered_titles:
                 row = [title]
-                for col in format_columns:
-                    status = results.get(title, {}).get(col, "skipped")
+                for col_name in format_columns:
+                    result = results.get(title, {}).get(col_name, "skipped")
+                    # Handle both old format (just status) and new format (status, error_msg)
+                    if isinstance(result, tuple):
+                        status, error_msg = result
+                    else:
+                        status = result
+                        error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
+
+                    # Store in tooltip_data for click handling
+                    self.tooltip_data[(table, title, col_name)] = (status, error_msg)
+
                     if status == "succeeded":
                         symbol = "✅"
                     elif status == "failed":
