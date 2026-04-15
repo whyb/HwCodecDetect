@@ -16,7 +16,7 @@ import requests
 import webbrowser
 from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
-from .utils import get_local_version
+from .utils import get_local_version, check_codec_support
 from .bitdepth_chroma_detect import (
     run_bitdepth_chroma_tests,
     PIXEL_FORMATS,
@@ -830,26 +830,35 @@ class HwCodecGUI:
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
 
+        # Check codec support before running tests
+        print("\nChecking FFmpeg codec support...")
+        unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
+        if unsupported_encoders or unsupported_decoders:
+            print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
+            print("These codecs will be marked as unavailable '-' in the results.\n")
+        else:
+            print("All defined hardware codecs are supported.\n")
+
         encoder_results = defaultdict(dict)
         decoder_results = defaultdict(dict)
         bd_encoder_results = defaultdict(dict)
         bd_decoder_results = defaultdict(dict)
 
-        # Calculate total tasks
+        # Calculate total tasks (excluding unsupported codecs)
         total_enc_tasks = sum(
-            len(info["hw_encoders"]) * len(RESOLUTIONS)
+            len([e for e in info["hw_encoders"] if e not in unsupported_encoders]) * len(RESOLUTIONS)
             for info in ENCODERS.values()
         )
         total_dec_tasks = sum(
-            len(info["hw_decoders"]) * len(RESOLUTIONS)
+            len([d for d in info["hw_decoders"] if d not in unsupported_decoders]) * len(RESOLUTIONS)
             for info in DECODERS.values()
         )
         total_bd_enc_tasks = sum(
-            len(info["hw_encoders"]) * len(PIXEL_FORMATS)
+            len([e for e in info["hw_encoders"] if e not in unsupported_encoders]) * len(PIXEL_FORMATS)
             for info in BD_ENCODERS.values()
         )
         total_bd_dec_tasks = sum(
-            len(info["hw_decoders"]) * len(PIXEL_FORMATS)
+            len([d for d in info["hw_decoders"] if d not in unsupported_decoders]) * len(PIXEL_FORMATS)
             for info in BD_DECODERS.values()
         )
         total_tasks = total_enc_tasks + total_dec_tasks + total_bd_enc_tasks + total_bd_dec_tasks
@@ -859,6 +868,12 @@ class HwCodecGUI:
         enc_tasks = []
         for codec, info in ENCODERS.items():
             for encoder in info["hw_encoders"]:
+                if encoder in unsupported_encoders:
+                    # Mark as skipped for all resolutions
+                    title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    for res_name in RESOLUTIONS.keys():
+                        encoder_results[title][res_name] = "skipped"
+                    continue
                 for res_name, res_size in RESOLUTIONS.items():
                     enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False))
 
@@ -879,6 +894,12 @@ class HwCodecGUI:
         dec_tasks = []
         for codec, info in DECODERS.items():
             for hw_decoder in info["hw_decoders"]:
+                if hw_decoder in unsupported_decoders:
+                    # Mark as skipped for all resolutions
+                    title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    for res_name in RESOLUTIONS.keys():
+                        decoder_results[title][res_name] = "skipped"
+                    continue
                 for res_name, res_size in RESOLUTIONS.items():
                     dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False))
 
@@ -899,6 +920,13 @@ class HwCodecGUI:
         bd_enc_tasks = []
         for codec, info in BD_ENCODERS.items():
             for encoder in info["hw_encoders"]:
+                if encoder in unsupported_encoders:
+                    # Mark as skipped for all formats
+                    title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
+                        key = f"{bit_depth}-bit {chroma}"
+                        bd_encoder_results[title][key] = "skipped"
+                    continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_enc_tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, temp_dir, False))
 
@@ -919,6 +947,13 @@ class HwCodecGUI:
         bd_dec_tasks = []
         for codec, info in BD_DECODERS.items():
             for hw_decoder in info["hw_decoders"]:
+                if hw_decoder in unsupported_decoders:
+                    # Mark as skipped for all formats
+                    title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
+                        key = f"{bit_depth}-bit {chroma}"
+                        bd_decoder_results[title][key] = "skipped"
+                    continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_dec_tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, temp_dir, False))
 
