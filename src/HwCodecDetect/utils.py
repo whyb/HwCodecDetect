@@ -74,6 +74,9 @@ def get_ffmpeg_supported_codecs():
     supported_encoders = set()
     supported_decoders = set()
 
+    creation_flags = 0
+    if sys.platform == "win32":
+        creation_flags = subprocess.CREATE_NO_WINDOW
     try:
         # Get encoders
         result = subprocess.run(
@@ -81,7 +84,8 @@ def get_ffmpeg_supported_codecs():
             capture_output=True,
             text=True,
             encoding='utf-8',
-            errors='ignore'
+            errors='ignore',
+            creationflags=creation_flags,
         )
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
@@ -97,7 +101,8 @@ def get_ffmpeg_supported_codecs():
             capture_output=True,
             text=True,
             encoding='utf-8',
-            errors='ignore'
+            errors='ignore',
+            creationflags=creation_flags,
         )
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
@@ -112,7 +117,8 @@ def get_ffmpeg_supported_codecs():
             capture_output=True,
             text=True,
             encoding='utf-8',
-            errors='ignore'
+            errors='ignore',
+            creationflags=creation_flags,
         )
         if result.returncode == 0:
             lines = result.stdout.split('\n')
