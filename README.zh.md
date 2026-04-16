@@ -43,8 +43,9 @@
 | AMF (Advanced Media Framework)            | H.264、H.265、AV1                                            |
 | DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
+| D3D12VA (Direct3D 12 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 | Vulkan                                  	| H.264、H.265、AV1                                            |
-| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4、ProRes                         |
+| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4、ProRes、VP9                     |
 
 ### 位深和色度采样检测
 除了基于分辨率的测试外，该工具现在还包含全面的位深和色度采样检测功能。此功能测试硬件编解码器对不同像素格式的支持，帮助您了解硬件编码器和解码器的完整能力。

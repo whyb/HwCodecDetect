@@ -60,9 +60,9 @@ ENCODER_TITLES = {
     ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder(Vulkan)",
     ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
     ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Encoder(Vulkan)",
-    ("h264_videotoolbox", "h264"): "MacOS Hardware H264 Encoder(VideoToolbox)",
-    ("hevc_videotoolbox", "h265"): "MacOS Hardware H265 Encoder(VideoToolbox)",
-    ("prores_videotoolbox", "prores"): "MacOS Hardware ProRes Encoder(VideoToolbox)",
+    ("h264_videotoolbox", "h264"): "Apple macOS Hardware H264 Encoder(VideoToolbox)",
+    ("hevc_videotoolbox", "h265"): "Apple macOS Hardware H265 Encoder(VideoToolbox)",
+    ("prores_videotoolbox", "prores"): "Apple macOS Hardware ProRes Encoder(VideoToolbox)",
 }
 
 # Decoder titles (same as main module)
@@ -97,14 +97,23 @@ DECODER_TITLES = {
     ("d3d11va", "mpeg4"): "Microsoft Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
     ("d3d11va", "vp8"): "Microsoft Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
     ("d3d11va", "vp9"): "Microsoft Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
+    ("d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Decoder(D3D12VA)",
+    ("d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Decoder(D3D12VA)",
+    ("d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Decoder(D3D12VA)",
+    ("d3d12va", "mpeg1"): "Microsoft Direct3D 12 Video Acceleration MPEG-1 Decoder(D3D12VA)",
+    ("d3d12va", "mpeg2"): "Microsoft Direct3D 12 Video Acceleration MPEG-2 Decoder(D3D12VA)",
+    ("d3d12va", "mpeg4"): "Microsoft Direct3D 12 Video Acceleration MPEG-4 Decoder(D3D12VA)",
+    ("d3d12va", "vp8"): "Microsoft Direct3D 12 Video Acceleration VP8 Decoder(D3D12VA)",
+    ("d3d12va", "vp9"): "Microsoft Direct3D 12 Video Acceleration VP9 Decoder(D3D12VA)",
     ("vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
     ("vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
     ("vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
-    ("videotoolbox", "h264"): "MacOS Hardware H264 Decoder(VideoToolbox)",
-    ("videotoolbox", "h265"): "MacOS Hardware H265 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg2"): "MacOS Hardware MPEG-2 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg4"): "MacOS Hardware MPEG-4 Decoder(VideoToolbox)",
-    ("videotoolbox", "prores"): "MacOS Hardware ProRes Decoder(VideoToolbox)",
+    ("videotoolbox", "h264"): "Apple macOS Hardware H264 Decoder(VideoToolbox)",
+    ("videotoolbox", "h265"): "Apple macOS Hardware H265 Decoder(VideoToolbox)",
+    ("videotoolbox", "mpeg2"): "Apple macOS Hardware MPEG-2 Decoder(VideoToolbox)",
+    ("videotoolbox", "mpeg4"): "Apple macOS Hardware MPEG-4 Decoder(VideoToolbox)",
+    ("videotoolbox", "prores"): "Apple macOS Hardware ProRes Decoder(VideoToolbox)",
+    ("videotoolbox", "vp9"): "Apple macOS Hardware VP9 Decoder(VideoToolbox)",
 }
 
 # Encoder definitions (same as main module)
@@ -127,7 +136,7 @@ DECODERS = {
     "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va", "videotoolbox"]},
     "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va", "videotoolbox"]},
     "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va"]},
-    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va"]},
+    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va", "videotoolbox"]},
     "prores": {"lib": "prores", "hw_decoders": ["videotoolbox"]},
 }
 
@@ -349,7 +358,7 @@ def _run_decoder_bitdepth_test(test_data):
             "-i", test_file,
             "-f", "null", "null",
         ]
-    elif hw_decoder in ["dxva2", "d3d11va"]:
+    elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
             "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file,

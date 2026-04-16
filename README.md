@@ -45,8 +45,9 @@ The script automatically detect and reports on the following major hardware deco
 | AMF (Advanced Media Framework)            | H.264、H.265、AV1                                            |
 | DXVA2 (DirectX Video Acceleration)        | H.264、H.265、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8              |
 | D3D11VA (Direct3D 11 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
+| D3D12VA (Direct3D 12 Video Acceleration) 	| H.264、H.265、AV1、MJPEG、MPEG-1、MPEG-2、MPEG-4、VP8、VP9    |
 | Vulkan                                  	| H.264、H.265、AV1                                            |
-| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4、ProRes                          |
+| Apple VideoToolbox                    	| H.264、H.265、MPEG-2、MPEG-4、ProRes、VP9                     |
 
 ### Bit-depth and Chroma Subsampling Detection
 In addition to resolution-based testing, the tool now includes comprehensive bit-depth and chroma subsampling detection. This feature tests hardware codec support for different pixel formats, helping you understand the full capabilities of your hardware encoders and decoders.
