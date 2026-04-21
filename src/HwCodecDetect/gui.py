@@ -552,7 +552,7 @@ def _run_decoder_bitdepth_test(test_data):
             "-i", test_file,
             "-f", "null", "null",
         ]
-    elif hw_decoder in ["dxva2", "d3d11va"]:
+    elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
             "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file,
