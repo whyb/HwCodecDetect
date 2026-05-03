@@ -10,7 +10,7 @@ import argparse
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from .bitdepth_chroma_detect import run_bitdepth_chroma_tests, print_bitdepth_chroma_results
-from .utils import check_codec_support
+from .utils import check_codec_support, get_stty_cfg, set_stty_cfg
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -390,12 +390,16 @@ def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None
             for res_name, res_size in RESOLUTIONS.items():
                 tasks.append((codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders))
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_encoder_test_single, task) for task in tasks]
-        
-        for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder tests"):
-            title, res_name, status = future.result()
-            results[title][res_name] = status
+    stty_cfg = get_stty_cfg()
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_run_encoder_test_single, task) for task in tasks]
+            
+            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder tests"):
+                title, res_name, status = future.result()
+                results[title][res_name] = status
+    finally:
+        set_stty_cfg(stty_cfg)
 
     return results
 
@@ -517,12 +521,16 @@ def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None
             for res_name, res_size in RESOLUTIONS.items():
                 tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders))
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_decoder_test_single, task) for task in tasks]
+    stty_cfg = get_stty_cfg()
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_run_decoder_test_single, task) for task in tasks]
 
-        for future in tqdm(as_completed(futures), total=len(tasks), desc="Running decoder tests"):
-            title, res_name, status = future.result()
-            results[title][res_name] = status
+            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running decoder tests"):
+                title, res_name, status = future.result()
+                results[title][res_name] = status
+    finally:
+        set_stty_cfg(stty_cfg)
 
     return results
 

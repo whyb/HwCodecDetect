@@ -170,3 +170,16 @@ def check_codec_support(encoders_dict, decoders_dict):
                 print(f"{Fore.YELLOW}Warning: Decoder '{decoder}' is not supported by current FFmpeg version{Style.RESET_ALL}")
 
     return unsupported_encoders, unsupported_decoders
+
+def get_stty_cfg():
+    try:
+        return subprocess.check_output(["stty", "--save"], text=True).strip()
+    except:
+        return None
+
+def set_stty_cfg(cfg):
+    if not cfg: return
+    try:
+        subprocess.run(["stty", cfg])
+    except:
+        pass

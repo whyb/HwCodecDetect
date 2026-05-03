@@ -12,7 +12,7 @@ from collections import defaultdict
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
-from .utils import check_codec_support
+from .utils import check_codec_support, get_stty_cfg, set_stty_cfg
 
 init(autoreset=True)
 
@@ -301,15 +301,19 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_enco
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                 tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders))
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_encoder_bitdepth_test, task) for task in tasks]
+    stty_cfg = get_stty_cfg()
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_run_encoder_bitdepth_test, task) for task in tasks]
 
-        for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder bit-depth tests"):
-            title, pix_fmt, bit_depth, chroma, status = future.result()
-            key = f"{bit_depth}-bit {chroma}"
-            if title not in results:
-                results[title] = {}
-            results[title][key] = status
+            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder bit-depth tests"):
+                title, pix_fmt, bit_depth, chroma, status = future.result()
+                key = f"{bit_depth}-bit {chroma}"
+                if title not in results:
+                    results[title] = {}
+                results[title][key] = status
+    finally:
+        set_stty_cfg(stty_cfg)
 
     return results
 
@@ -423,14 +427,19 @@ def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_deco
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                 tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders))
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_run_decoder_bitdepth_test, task) for task in tasks]
-        for future in tqdm(as_completed(futures), total=len(tasks), desc="Running decoder bit-depth tests"):
-            title, pix_fmt, bit_depth, chroma, status = future.result()
-            key = f"{bit_depth}-bit {chroma}"
-            if title not in results:
-                results[title] = {}
-            results[title][key] = status
+    stty_cfg = get_stty_cfg()
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_run_decoder_bitdepth_test, task) for task in tasks]
+            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running decoder bit-depth tests"):
+                title, pix_fmt, bit_depth, chroma, status = future.result()
+                key = f"{bit_depth}-bit {chroma}"
+                if title not in results:
+                    results[title] = {}
+                results[title][key] = status
+    finally:
+        set_stty_cfg(stty_cfg)
+
     return results
 
 
