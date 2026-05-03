@@ -556,15 +556,17 @@ def _print_summary_table(results):
     row_header_width = max([_get_display_width(t) for t in results.keys()] + [20, _get_display_width("Decoder"), _get_display_width("Encoder")])
 
     if decoder_titles:
-        print("\n" + "-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
         header_text = "Decoder"
         padding_left = (row_header_width - _get_display_width(header_text)) // 2
         padding_right = row_header_width - _get_display_width(header_text) - padding_left
         header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
+        line_row = f"|-{'-' * row_header_width}-|"
         for res in resolutions:
             header_row += f" {res.center(res_width)} |"
+            line_row += f"-{'-' * res_width}-|"
         print(header_row)
-        print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print(line_row)
 
         for title in decoder_titles:
             padding_needed = row_header_width - _get_display_width(title)
@@ -577,18 +579,20 @@ def _print_summary_table(results):
                 padding_right = res_width - symbol_width - padding_left
                 row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
             print(row_string)
-        print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print("=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
 
     if encoder_titles:
-        print("\n" + "-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
         header_text = "Encoder"
         padding_left = (row_header_width - _get_display_width(header_text)) // 2
         padding_right = row_header_width - _get_display_width(header_text) - padding_left
         header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
+        line_row = f"|-{'-' * row_header_width}-|"
         for res in resolutions:
             header_row += f" {res.center(res_width)} |"
+            line_row += f"-{'-' * res_width}-|"
         print(header_row)
-        print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print(line_row)
 
         for title in encoder_titles:
             padding_needed = row_header_width - _get_display_width(title)
@@ -601,7 +605,7 @@ def _print_summary_table(results):
                 padding_right = res_width - symbol_width - padding_left
                 row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
             print(row_string)
-        print("-" * (row_header_width + 3 + (res_width + 3) * len(resolutions)))
+        print("=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
 
 
 def run_all_tests(args):

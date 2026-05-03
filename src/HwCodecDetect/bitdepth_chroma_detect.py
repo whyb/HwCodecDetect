@@ -473,15 +473,17 @@ def _print_bitdepth_chroma_table(results, table_type="Encoder"):
     col_width = max(len(col) for col in format_columns)
     row_header_width = max([_get_display_width(t) for t in titles] + [20, _get_display_width(table_type)])
 
-    print("\n" + "=" * (row_header_width + 3 + (col_width + 3) * len(format_columns)))
+    print("\n" + "=" * (row_header_width + 4 + (col_width + 3) * len(format_columns)))
     header_text = f"Bit-depth/Chroma {table_type} Support"
     padding_left = (row_header_width - _get_display_width(header_text)) // 2
     padding_right = row_header_width - _get_display_width(header_text) - padding_left
     header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
+    line_row = f"|-{'-' * row_header_width}-|"
     for col in format_columns:
         header_row += f" {col.center(col_width)} |"
+        line_row += f"-{'-' * col_width}-|"
     print(header_row)
-    print("-" * (row_header_width + 3 + (col_width + 3) * len(format_columns)))
+    print(line_row)
 
     for title in titles:
         padding_needed = row_header_width - _get_display_width(title)
@@ -494,7 +496,7 @@ def _print_bitdepth_chroma_table(results, table_type="Encoder"):
             padding_right = col_width - symbol_width - padding_left
             row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
         print(row_string)
-    print("=" * (row_header_width + 3 + (col_width + 3) * len(format_columns)))
+    print("=" * (row_header_width + 4 + (col_width + 3) * len(format_columns)))
 
 
 def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose):
