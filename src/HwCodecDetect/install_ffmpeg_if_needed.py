@@ -1,22 +1,1034 @@
+"""
+FFmpeg installation checker and auto-installer.
+
+Supports:
+  - Windows (winget, chocolatey, scoop, manual download for x86_64/ARM64)
+  - Linux (apt, dnf, yum, pacman, zypper, apk, xbps, nix-env, static binary fallback)
+  - macOS (Homebrew, MacPorts, conda, nix-env, manual download)
+
+Features:
+  - CPU architecture detection (x86_64, ARM64, ARMv7, etc.)
+  - Comprehensive Linux distribution detection
+  - Download with retry, timeout, progress bar, and proxy support
+  - Post-installation verification
+  - Graceful fallback chain with informative error messages
+  - Docker/CI environment awareness
+"""
+
 import os
 import sys
 import platform
 import subprocess
 import shutil
 import urllib.request
+import urllib.error
 import zipfile
 import tempfile
+import time
+import ssl
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+DOWNLOAD_TIMEOUT = 120  # seconds per download attempt
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2  # seconds, multiplied by attempt number
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
+
+def _run_cmd(command, check=False, timeout=120):
+    """Run a subprocess command, returning the CompletedProcess.
+
+    On Windows the CREATE_NO_WINDOW flag is used so that no console window
+    pops up.  All exceptions are caught and the caller receives ``None``.
+    """
+    creation_flags = 0
+    if sys.platform == "win32":
+        try:
+            creation_flags = subprocess.CREATE_NO_WINDOW
+        except AttributeError:
+            pass
+    try:
+        return subprocess.run(
+            command,
+            check=check,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            creationflags=creation_flags,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def _is_frozen():
+    """Return True when running inside a PyInstaller / cx_Freeze bundle."""
+    return getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None) is not None
+
+
+# ---------------------------------------------------------------------------
+# Architecture detection
+# ---------------------------------------------------------------------------
+
+_ARCH_MAP = {
+    "x86_64": "x86_64",
+    "amd64": "x86_64",
+    "x86_32": "x86",
+    "i386": "x86",
+    "i686": "x86",
+    "aarch64": "aarch64",
+    "arm64": "aarch64",       # macOS Apple Silicon
+    "armv7l": "armv7",
+    "armv6l": "armv6",
+}
+
+
+def get_architecture():
+    """Return a normalised architecture string such as ``x86_64``, ``aarch64``,
+    ``armv7``, etc."""
+    machine = platform.machine().lower()
+    return _ARCH_MAP.get(machine, machine)
+
+
+def _get_python_arch_bits():
+    """Return the pointer size of the running Python interpreter (32 or 64)."""
+    import struct
+    return struct.calcsize("P") * 8
+
+
+# ---------------------------------------------------------------------------
+# Linux distribution detection
+# ---------------------------------------------------------------------------
+
+def get_linux_distro():
+    """Detect the Linux distribution using ``/etc/os-release`` and fallbacks.
+
+    Returns a dict with keys: ``id``, ``id_like`` (list), ``name``.
+    All values are lower-cased.
+    """
+    distro = {"id": "unknown", "id_like": [], "name": ""}
+
+    # ---- Primary: /etc/os-release (standard on virtually all modern distros) ----
+    os_release = "/etc/os-release"
+    if not os.path.exists(os_release):
+        os_release = "/usr/lib/os-release"
+
+    if os.path.exists(os_release):
+        # Parse INI-style file manually (safer than configparser because
+        # /etc/os-release may contain unquoted values with special chars).
+        try:
+            with open(os_release, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" not in line:
+                        continue
+                    key, _, value = line.partition("=")
+                    key = key.strip().lower()
+                    # Strip optional surrounding quotes from value
+                    value = value.strip().strip('"').strip("'")
+                    if key == "id":
+                        distro["id"] = value.lower()
+                    elif key == "id_like":
+                        # May be space- or comma-separated
+                        raw = value.replace(",", " ")
+                        distro["id_like"] = [v.strip().lower() for v in raw.split() if v.strip()]
+                    elif key == "name":
+                        distro["name"] = value
+        except OSError:
+            pass
+
+    # ---- Fallback heuristics ----
+    if distro["id"] == "unknown":
+        fallbacks = [
+            ("/etc/arch-release", "arch"),
+            ("/etc/debian_version", "debian"),
+            ("/etc/redhat-release", "redhat"),
+            ("/etc/centos-release", "centos"),
+            ("/etc/fedora-release", "fedora"),
+            ("/etc/alpine-release", "alpine"),
+            ("/etc/SuSE-release", "suse"),
+            ("/etc/void-release", "void"),
+        ]
+        for path, name in fallbacks:
+            if os.path.exists(path):
+                distro["id"] = name
+                break
+
+    return distro
+
+
+def _distro_matches(distro, *candidates):
+    """Check if the detected distro (or any of its ``id_like`` parents) matches
+    one of the *candidates*."""
+    ids = {distro["id"]} | set(distro.get("id_like", []))
+    for c in candidates:
+        if c in ids:
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Docker / CI detection helpers
+# ---------------------------------------------------------------------------
+
+def _is_docker_or_ci():
+    """Return True when likely running inside Docker or a CI system."""
+    if os.path.exists("/.dockerenv"):
+        return True
+    # cgroup v1
+    try:
+        with open("/proc/1/cgroup", "r", errors="ignore") as f:
+            if "docker" in f.read():
+                return True
+    except OSError:
+        pass
+    # Common CI environment variables
+    for var in ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_HOME", "BUILDKITE", "TRAVIS", "CIRCLECI", "TF_BUILD"):
+        if os.environ.get(var):
+            return True
+    return False
+
+
+def _is_root():
+    """Return True if running as root (UID 0)."""
+    if sys.platform == "win32":
+        return False  # Windows doesn't have UID 0 concept in the same way
+    try:
+        return os.geteuid() == 0
+    except AttributeError:
+        return False
+
+
+def _sudo_prefix():
+    """Return the command prefix for privilege escalation.
+
+    If already root or inside Docker (as root) → empty list.
+    If ``sudo`` is available → ``["sudo"]``.
+    Otherwise → empty list (will likely fail with a permission error, but
+    the caller can catch that).
+    """
+    if _is_root():
+        return []
+    if shutil.which("sudo"):
+        return ["sudo"]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Download helpers
+# ---------------------------------------------------------------------------
+
+def _get_proxy_handler():
+    """Build a URL handler that honours ``HTTP_PROXY`` / ``HTTPS_PROXY`` /
+    ``ALL_PROXY`` / ``NO_PROXY`` environment variables.
+
+    This is needed because ``urllib.request`` does **not** read these by default
+    on all platforms (especially when ``REQUESTS_CA_BUNDLE`` or custom SSL is
+    involved).
+    """
+    # urllib.request.urlopen already respects http_proxy / https_proxy on most
+    # platforms, but we also handle SSL context explicitly.
+    return None  # Let stdlib handle it; we only customise SSL.
+
+
+def _get_ssl_context():
+    """Create an SSL context that honours system / env configuration."""
+    ctx = ssl.create_default_context()
+    # Honour custom CA bundles commonly used in corporate environments
+    ca_file = (
+        os.environ.get("SSL_CERT_FILE")
+        or os.environ.get("REQUESTS_CA_BUNDLE")
+        or os.environ.get("CURL_CA_BUNDLE")
+    )
+    if ca_file and os.path.isfile(ca_file):
+        ctx.load_verify_locations(ca_file)
+    return ctx
+
+
+def _download_file(url, dest_path, description="file"):
+    """Download *url* to *dest_path* with retry, timeout, and progress.
+
+    Returns True on success, False on failure.  Prints progress to stdout.
+    """
+    ssl_ctx = _get_ssl_context()
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "HwCodecDetect/1.0"})
+            with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT, context=ssl_ctx) as resp:
+                total = resp.headers.get("Content-Length")
+                total = int(total) if total else None
+
+                downloaded = 0
+                last_pct_printed = -1
+                with open(dest_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            pct = int(downloaded * 100 / total)
+                            if pct != last_pct_printed and pct % 10 == 0:
+                                last_pct_printed = pct
+                                print(f"\r  Downloading {description}: {pct}%  ", end="", flush=True)
+                if total:
+                    print(f"\r  Downloading {description}: 100%  ")
+                return True
+
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, ssl.SSLError) as e:
+            wait = RETRY_BACKOFF * attempt
+            code = getattr(e, "code", None)
+            if code in (404, 403):
+                # Don't retry client errors
+                print(f"\n  Download failed (HTTP {code}): {url}", file=sys.stderr)
+                return False
+            if attempt < MAX_RETRIES:
+                print(f"\n  Download attempt {attempt} failed: {e}. Retrying in {wait}s...", file=sys.stderr)
+                time.sleep(wait)
+            else:
+                print(f"\n  Download failed after {MAX_RETRIES} attempts: {e}", file=sys.stderr)
+                return False
+
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Post-install verification
+# ---------------------------------------------------------------------------
+
+def verify_ffmpeg(ffmpeg_path=None):
+    """Run ``ffmpeg -version`` to verify the binary works.
+
+    If *ffmpeg_path* is given, use that; otherwise rely on PATH lookup.
+    Returns True if verification succeeds.
+    """
+    cmd = [ffmpeg_path or "ffmpeg", "-version"]
+    result = _run_cmd(cmd, timeout=15)
+    return result is not None and result.returncode == 0
+
+
+def _try_find_ffmpeg_in_common_locations():
+    """On some platforms, a freshly installed ffmpeg may not be in the *current*
+    PATH but exists in well-known directories.  Return the directory path if
+    found, else ``None``.
+    """
+    system = platform.system()
+    candidates = []
+
+    if system == "Windows":
+        # Winget installs to %LOCALAPPDATA%\Microsoft\WinGet\Packages or ProgramFiles
+        local = os.environ.get("LOCALAPPDATA", "")
+        if local:
+            # Search WinGet Packages directory
+            winget_pkg = os.path.join(local, "Microsoft", "WinGet", "Packages")
+            if os.path.isdir(winget_pkg):
+                for entry in os.listdir(winget_pkg):
+                    if "ffmpeg" in entry.lower():
+                        bin_dir = os.path.join(winget_pkg, entry, "ffmpeg-master-latest-win64-gpl-shared", "bin")
+                        if os.path.isdir(bin_dir):
+                            candidates.append(bin_dir)
+                        # Also try without the nested folder
+                        bin_dir2 = os.path.join(winget_pkg, entry, "bin")
+                        if os.path.isdir(bin_dir2):
+                            candidates.append(bin_dir2)
+        # Chocolatey
+        choco = os.environ.get("ProgramData", "")
+        if choco:
+            choco_bin = os.path.join(choco, "chocolatey", "bin")
+            if os.path.isdir(choco_bin):
+                candidates.append(choco_bin)
+        # Scoop
+        scoop_dir = os.path.expanduser("~/scoop/apps/ffmpeg/current")
+        if os.path.isdir(scoop_dir):
+            candidates.append(scoop_dir)
+        # Common manual install locations
+        for base in ("C:\\ffmpeg\\bin", "C:\\Program Files\\ffmpeg\\bin", os.path.expanduser("~/ffmpeg/bin")):
+            if os.path.isdir(base):
+                candidates.append(base)
+
+    elif system == "Darwin":
+        # Homebrew
+        for prefix in ("/opt/homebrew/bin", "/usr/local/bin"):  # Apple Silicon / Intel
+            if os.path.isfile(os.path.join(prefix, "ffmpeg")):
+                candidates.append(os.path.dirname(os.path.join(prefix, "ffmpeg")))
+        # MacPorts
+        if os.path.isdir("/opt/local/bin"):
+            candidates.append("/opt/local/bin")
+        # Conda
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        if conda_prefix:
+            candidates.append(os.path.join(conda_prefix, "bin"))
+
+    elif system == "Linux":
+        for p in ("/usr/local/bin", "/usr/bin", "/snap/bin", "/opt/ffmpeg/bin",
+                   os.path.expanduser("~/.local/bin"),
+                   os.path.expanduser("~/bin")):
+            if os.path.isfile(os.path.join(p, "ffmpeg")):
+                candidates.append(p)
+        # Conda / Nix
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        if conda_prefix:
+            candidates.append(os.path.join(conda_prefix, "bin"))
+        nix_profile = os.path.expanduser("~/.nix-profile/bin")
+        if os.path.isdir(nix_profile):
+            candidates.append(nix_profile)
+
+    for d in candidates:
+        ffmpeg_full = os.path.join(d, "ffmpeg")
+        if os.path.isfile(ffmpeg_full):
+            return d
+    return None
+
+
+def _prepend_to_path(dir_path):
+    """Prepend *dir_path* to ``PATH`` in both the current process and the
+    subprocess environment so that child processes can find ffmpeg.
+    """
+    os.environ["PATH"] = dir_path + os.pathsep + os.environ.get("PATH", "")
+
+
+# ---------------------------------------------------------------------------
+# Manual install suggestions
+# ---------------------------------------------------------------------------
+
+def _suggest_manual_install():
+    """Print clear manual-install instructions and return False."""
+    system = platform.system()
+    arch = get_architecture()
+    print("\n" + "=" * 60, file=sys.stderr)
+    print("Automatic FFmpeg installation failed.", file=sys.stderr)
+    print("Please install FFmpeg manually:", file=sys.stderr)
+
+    if system == "Windows":
+        print(f"""
+  Method 1 – winget:
+    winget install --id Gyan.FFmpeg -e
+
+  Method 2 – choco:
+    choco install ffmpeg
+
+  Method 3 – scoop:
+    scoop install ffmpeg
+
+  Method 4 – Download manually:
+    Architecture: {arch}
+    https://github.com/BtbN/FFmpeg-Builds/releases
+    Download the file matching: ffmpeg-master-latest-win{ '64' if arch == 'x86_64' else 'arm64' }-gpl-shared.zip
+    Extract and add the 'bin' folder to your system PATH.
+""", file=sys.stderr)
+    elif system == "Darwin":
+        print(f"""
+  Method 1 – Homebrew (recommended):
+    brew install ffmpeg
+
+  Method 2 – MacPorts:
+    sudo port install ffmpeg
+
+  Method 3 – Download manually:
+    https://evermeet.cx/ffmpeg/
+    https://ffmpeg.org/download.html
+""", file=sys.stderr)
+    elif system == "Linux":
+        print(f"""
+  Debian/Ubuntu:     sudo apt update && sudo apt install ffmpeg
+  Fedora/RHEL 8+:   sudo dnf install ffmpeg
+  CentOS 7:         sudo yum install epel-release && sudo yum install ffmpeg
+  Arch Linux:       sudo pacman -S ffmpeg
+  openSUSE:         sudo zypper install ffmpeg
+  Alpine:           apk add ffmpeg
+  Void Linux:       sudo xbps-install -S ffmpeg
+  Static binary:    https://johnvansickle.com/ffmpeg/
+""", file=sys.stderr)
+    else:
+        print(f"""
+  Please see: https://ffmpeg.org/download.html
+  Architecture: {arch}
+""", file=sys.stderr)
+
+    print("=" * 60, file=sys.stderr)
+    return False
+
+
+# ===================================================================
+# Windows installation
+# ===================================================================
+
+def _windows_download_fallback():
+    """Download a pre-built FFmpeg binary as a last resort on Windows."""
+    arch = get_architecture()
+    bits = _get_python_arch_bits()
+
+    # Candidate URLs ordered by preference.
+    urls = []
+    if arch == "x86_64":
+        urls = [
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+        ]
+    elif arch == "aarch64":
+        urls = [
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl-shared.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+        ]
+    elif bits == 32:
+        urls = [
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win32-gpl-shared.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+        ]
+
+    if not urls:
+        print(f"  No pre-built FFmpeg available for Windows {arch}/{bits}bit.", file=sys.stderr)
+        return False
+
+    # Determine a writable install directory
+    install_dir = None
+    # Try a location next to the current script / package
+    if not _is_frozen():
+        install_dir = os.path.join(os.path.expanduser("~"), ".hwcodecdetect", "ffmpeg")
+    else:
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            install_dir = os.path.join(local, "HwCodecDetect", "ffmpeg")
+    if not install_dir:
+        install_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect_ffmpeg")
+
+    for url in urls:
+        print(f"  Trying download: {url}")
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = os.path.join(tmp, "ffmpeg.zip")
+            if not _download_file(url, zip_path, description="FFmpeg"):
+                continue
+
+            # Extract
+            try:
+                print("  Extracting...")
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    # Find the bin directory inside the zip
+                    bin_entries = [n for n in zf.namelist() if "/bin/ffmpeg.exe" in n or "\\bin\\ffmpeg.exe" in n]
+                    if bin_entries:
+                        # Extract entire bin folder content
+                        for entry in bin_entries:
+                            # Find the bin directory prefix
+                            idx = entry.lower().find("/bin/")
+                            if idx == -1:
+                                idx = entry.lower().find("\\bin\\")
+                            bin_prefix = entry[:idx + 5]  # include "bin/" or "bin\\"
+                            break
+                    else:
+                        # Fallback: extract all
+                        zf.extractall(tmp)
+                        # Search for ffmpeg.exe
+                        for root, dirs, files in os.walk(tmp):
+                            if "ffmpeg.exe" in files:
+                                bin_prefix = root + os.sep
+                                break
+                        else:
+                            print("  Could not locate ffmpeg.exe in archive.", file=sys.stderr)
+                            continue
+
+                    # Create install directory
+                    os.makedirs(install_dir, exist_ok=True)
+
+                    # Extract bin contents
+                    for entry in zf.namelist():
+                        if entry.startswith(bin_prefix) and not entry.endswith("/"):
+                            data = zf.read(entry)
+                            fname = os.path.basename(entry)
+                            if fname:
+                                target = os.path.join(install_dir, fname)
+                                with open(target, "wb") as f:
+                                    f.write(data)
+
+            except (zipfile.BadZipFile, OSError) as e:
+                print(f"  Extraction failed: {e}", file=sys.stderr)
+                continue
+
+            # Verify
+            ffmpeg_exe = os.path.join(install_dir, "ffmpeg.exe")
+            if os.path.isfile(ffmpeg_exe) and verify_ffmpeg(ffmpeg_exe):
+                _prepend_to_path(install_dir)
+                # Also try to persist the PATH change for the user
+                _try_add_to_user_path_windows(install_dir)
+                print(f"  FFmpeg installed to: {install_dir}")
+                return True
+            else:
+                print("  Downloaded file verification failed.", file=sys.stderr)
+
+    return False
+
+
+def _try_add_to_user_path_windows(dir_path):
+    """Attempt to add *dir_path* to the user's PATH via the registry.
+
+    This is a best-effort operation; failures are silently ignored.
+    """
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_ALL_ACCESS)
+        try:
+            current_path, _ = winreg.QueryValueEx(key, "Path")
+        except FileNotFoundError:
+            current_path = ""
+        if dir_path.lower() not in current_path.lower():
+            new_path = dir_path + ";" + current_path if current_path else dir_path
+            winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
+            # Notify the system about the change (broadcast WM_SETTINGCHANGE)
+            try:
+                import ctypes
+                HWND_BROADCAST = 0xFFFF
+                WM_SETTINGCHANGE = 0x001A
+                SMTO_ABORTIFHUNG = 0x0002
+                ctypes.windll.user32.SendMessageTimeoutW(
+                    HWND_BROADCAST, WM_SETTINGCHANGE, 0,
+                    "Environment", SMTO_ABORTIFHUNG, 5000, None
+                )
+            except Exception:
+                pass
+            print(f"  Added {dir_path} to user PATH (will take effect in new terminals).")
+        winreg.CloseKey(key)
+    except Exception:
+        pass  # Best-effort
+
+
+def install_on_windows():
+    """Install FFmpeg on Windows using a cascade of methods."""
+    print("FFmpeg not found. Attempting to install for Windows...")
+
+    # Method 1: Winget
+    if shutil.which("winget"):
+        print("  [1/4] Trying Winget...")
+        result = _run_cmd(
+            ["winget", "install", "--id", "Gyan.FFmpeg", "-e",
+             "--accept-package-agreements", "--accept-source-agreements"],
+            timeout=300,
+        )
+        if result and result.returncode == 0:
+            # Winget may install to a location not yet in PATH
+            extra = _try_find_ffmpeg_in_common_locations()
+            if extra:
+                _prepend_to_path(extra)
+            if shutil.which("ffmpeg") or (extra and verify_ffmpeg(os.path.join(extra, "ffmpeg.exe"))):
+                print("  FFmpeg installed via Winget.")
+                return 0
+        print("  Winget installation failed or verification failed.", file=sys.stderr)
+
+    # Method 2: Chocolatey
+    if shutil.which("choco"):
+        print("  [2/4] Trying Chocolatey...")
+        result = _run_cmd(["choco", "install", "ffmpeg", "-y"], timeout=300)
+        if result and result.returncode == 0:
+            extra = _try_find_ffmpeg_in_common_locations()
+            if extra:
+                _prepend_to_path(extra)
+            if shutil.which("ffmpeg"):
+                print("  FFmpeg installed via Chocolatey.")
+                return 0
+        print("  Chocolatey installation failed.", file=sys.stderr)
+
+    # Method 3: Scoop
+    if shutil.which("scoop"):
+        print("  [3/4] Trying Scoop...")
+        result = _run_cmd(["scoop", "install", "ffmpeg"], timeout=300)
+        if result and result.returncode == 0:
+            extra = _try_find_ffmpeg_in_common_locations()
+            if extra:
+                _prepend_to_path(extra)
+            if shutil.which("ffmpeg"):
+                print("  FFmpeg installed via Scoop.")
+                return 0
+        print("  Scoop installation failed.", file=sys.stderr)
+
+    # Method 4: Manual download
+    print("  [4/4] Downloading pre-built FFmpeg binary...")
+    if _windows_download_fallback():
+        print("  FFmpeg installed via manual download.")
+        return 0
+
+    return -1 if not _suggest_manual_install() else -1
+
+
+# ===================================================================
+# Linux installation
+# ===================================================================
+
+def install_on_linux():
+    """Install FFmpeg on Linux using the appropriate package manager, with
+    a static-binary download as the ultimate fallback."""
+    print("FFmpeg not found. Attempting to install for Linux...")
+
+    distro = get_linux_distro()
+    sudo = _sudo_prefix()
+    is_docker = _is_docker_or_ci()
+
+    # If running in Docker as non-root, try without sudo first (likely won't
+    # need it in most Docker images).
+    if is_docker and not _is_root():
+        sudo = []  # Most Docker images either run as root or have the pkg mgr
+
+    # ---- Package manager cascade ----
+    pm_tried = []
+
+    # Debian / Ubuntu / Linux Mint / Pop!_OS / etc.
+    if _distro_matches(distro, "debian", "ubuntu", "linuxmint", "pop", "kali", "raspbian", "deepin", "uos"):
+        pm_name = "apt-get"
+        cmd = sudo + ["apt-get", "install", "-y", "ffmpeg"]
+        if not shutil.which("apt-get"):
+            cmd = None
+        else:
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            # First try update (best-effort)
+            _run_cmd(sudo + ["apt-get", "update", "-qq"], timeout=60)
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # Fedora / RHEL 8+ / CentOS 8+ / Rocky / Alma / Amazon Linux 2+
+    elif _distro_matches(distro, "fedora", "rhel", "centos", "rocky", "almalinux", "amzn", "ol"):
+        # Determine dnf vs yum
+        if shutil.which("dnf"):
+            pm_name = "dnf"
+            cmd = sudo + ["dnf", "install", "-y", "ffmpeg"]
+        elif shutil.which("yum"):
+            pm_name = "yum"
+            cmd = sudo + ["yum", "install", "-y", "ffmpeg"]
+        else:
+            cmd = None
+
+        if cmd:
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            # Fedora/RHEL often need RPM Fusion for ffmpeg
+            if pm_name == "dnf":
+                print("  Trying to enable RPM Fusion repository...")
+                rpmfusion_cmd = sudo + [
+                    "dnf", "install", "-y",
+                    "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm",
+                ] if not _distro_matches(distro, "fedora") else None
+                if _distro_matches(distro, "fedora"):
+                    rpmfusion_cmd = sudo + [
+                        "dnf", "install", "-y",
+                        "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm",
+                    ]
+                if rpmfusion_cmd:
+                    _run_cmd(rpmfusion_cmd, timeout=120)
+                    result = _run_cmd(cmd, timeout=180)
+                    if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                        print(f"  FFmpeg installed via {pm_name} (with RPM Fusion).")
+                        return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # Arch / Manjaro / EndeavourOS
+    elif _distro_matches(distro, "arch", "manjaro", "endeavouros", "garuda", "arcolinux"):
+        if shutil.which("pacman"):
+            pm_name = "pacman"
+            cmd = sudo + ["pacman", "-S", "--noconfirm", "ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # openSUSE / SLES
+    elif _distro_matches(distro, "opensuse", "sles", "suse"):
+        if shutil.which("zypper"):
+            pm_name = "zypper"
+            cmd = sudo + ["zypper", "--non-interactive", "install", "ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # Alpine
+    elif _distro_matches(distro, "alpine"):
+        if shutil.which("apk"):
+            pm_name = "apk"
+            cmd = sudo + ["apk", "add", "ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # Void Linux
+    elif _distro_matches(distro, "void"):
+        if shutil.which("xbps-install"):
+            pm_name = "xbps-install"
+            cmd = sudo + ["xbps-install", "-Sy", "ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=180)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # Gentoo
+    elif _distro_matches(distro, "gentoo"):
+        if shutil.which("emerge"):
+            pm_name = "emerge"
+            cmd = sudo + ["emerge", "-av", "media-video/ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name} (this may take a while)...")
+            result = _run_cmd(cmd, timeout=3600)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # NixOS
+    elif _distro_matches(distro, "nixos", "nix"):
+        if shutil.which("nix-env"):
+            pm_name = "nix-env"
+            cmd = ["nix-env", "-iA", "nixpkgs.ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=300)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
+
+    # ---- Generic: try common package managers if nothing matched above ----
+    if not pm_tried:
+        for pm_name, cmd_list in [
+            ("apt-get", sudo + ["apt-get", "install", "-y", "ffmpeg"]),
+            ("dnf", sudo + ["dnf", "install", "-y", "ffmpeg"]),
+            ("yum", sudo + ["yum", "install", "-y", "ffmpeg"]),
+            ("pacman", sudo + ["pacman", "-S", "--noconfirm", "ffmpeg"]),
+            ("zypper", sudo + ["zypper", "--non-interactive", "install", "ffmpeg"]),
+            ("apk", sudo + ["apk", "add", "ffmpeg"]),
+        ]:
+            if shutil.which(pm_name.split("-")[0]):
+                print(f"  Trying {pm_name} (generic fallback)...")
+                result = _run_cmd(cmd_list, timeout=180)
+                if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                    print(f"  FFmpeg installed via {pm_name}.")
+                    return 0
+                print(f"  {pm_name} failed.", file=sys.stderr)
+
+    # ---- Fallback: download static build ----
+    print("  Package manager installation failed. Trying static binary download...")
+    if _linux_download_static_fallback():
+        return 0
+
+    return -1 if not _suggest_manual_install() else -1
+
+
+def _linux_download_static_fallback():
+    """Download John Van Sickle's static FFmpeg build (x86_64 / ARM64 / ARMv7)."""
+    arch = get_architecture()
+    urls = {
+        "x86_64": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+        "aarch64": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz",
+        "armv7": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-armhf-static.tar.xz",
+    }
+    url = urls.get(arch)
+    if not url:
+        print(f"  No static FFmpeg build available for {arch}.", file=sys.stderr)
+        return False
+
+    install_dir = os.path.expanduser("~/.local/bin")
+    os.makedirs(install_dir, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tar_path = os.path.join(tmp, "ffmpeg.tar.xz")
+        print(f"  Downloading static FFmpeg ({arch})...")
+        if not _download_file(url, tar_path, description=f"FFmpeg static ({arch})"):
+            return False
+
+        # Extract – prefer tar, fall back to python tarfile
+        print("  Extracting...")
+        result = _run_cmd(["tar", "-xJf", tar_path, "-C", tmp], timeout=60)
+        if result is None or result.returncode != 0:
+            # Try python tarfile
+            try:
+                import tarfile
+                with tarfile.open(tar_path, "r:xz") as tf:
+                    tf.extractall(tmp)
+            except Exception as e:
+                print(f"  Extraction failed: {e}", file=sys.stderr)
+                return False
+
+        # Find the ffmpeg binary in the extracted content
+        for root, _dirs, files in os.walk(tmp):
+            if "ffmpeg" in files:
+                src = os.path.join(root, "ffmpeg")
+                dst = os.path.join(install_dir, "ffmpeg")
+                shutil.copy2(src, dst)
+                os.chmod(dst, 0o755)
+                _prepend_to_path(install_dir)
+                print(f"  FFmpeg installed to {dst}")
+                return True
+
+    print("  Could not locate ffmpeg binary in downloaded archive.", file=sys.stderr)
+    return False
+
+
+# ===================================================================
+# macOS installation
+# ===================================================================
+
+def install_on_macos():
+    """Install FFmpeg on macOS via Homebrew, MacPorts, conda, or manual download."""
+    print("FFmpeg not found. Attempting to install for macOS...")
+
+    # Method 1: Homebrew
+    if shutil.which("brew"):
+        print("  [1/5] Trying Homebrew...")
+        result = _run_cmd(["brew", "install", "ffmpeg"], timeout=600)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via Homebrew.")
+            return 0
+        print("  Homebrew installation failed.", file=sys.stderr)
+
+    # Method 2: MacPorts
+    if shutil.which("port"):
+        print("  [2/5] Trying MacPorts...")
+        result = _run_cmd(["sudo", "port", "install", "ffmpeg"], timeout=600)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via MacPorts.")
+            return 0
+        print("  MacPorts installation failed.", file=sys.stderr)
+
+    # Method 3: Conda
+    if shutil.which("conda"):
+        print("  [3/5] Trying Conda...")
+        result = _run_cmd(["conda", "install", "-c", "conda-forge", "ffmpeg", "-y"], timeout=600)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via Conda.")
+            return 0
+        print("  Conda installation failed.", file=sys.stderr)
+
+    # Method 4: Nix
+    if shutil.which("nix-env"):
+        print("  [4/5] Trying Nix...")
+        result = _run_cmd(["nix-env", "-iA", "nixpkgs.ffmpeg"], timeout=300)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via Nix.")
+            return 0
+        print("  Nix installation failed.", file=sys.stderr)
+
+    # Method 5: Manual download
+    print("  [5/5] Downloading pre-built FFmpeg binary...")
+    if _macos_download_fallback():
+        print("  FFmpeg installed via manual download.")
+        return 0
+
+    # Method 6: Install Homebrew automatically
+    if not shutil.which("brew"):
+        print("  Attempting to install Homebrew first...")
+        result = _run_cmd(
+            ['/bin/bash', '-c',
+             '$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)'],
+            timeout=300,
+        )
+        if result and result.returncode == 0:
+            # Try brew again
+            brew_path = "/opt/homebrew/bin/brew" if platform.machine() == "arm64" else "/usr/local/bin/brew"
+            if os.path.isfile(brew_path):
+                result = _run_cmd([brew_path, "install", "ffmpeg"], timeout=600)
+                if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                    print("  FFmpeg installed via Homebrew (auto-installed).")
+                    return 0
+            elif shutil.which("brew"):
+                result = _run_cmd(["brew", "install", "ffmpeg"], timeout=600)
+                if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                    print("  FFmpeg installed via Homebrew (auto-installed).")
+                    return 0
+        print("  Homebrew auto-installation failed.", file=sys.stderr)
+
+    return -1 if not _suggest_manual_install() else -1
+
+
+def _macos_download_fallback():
+    """Download a pre-built FFmpeg for macOS from evermeet.cx."""
+    arch = get_architecture()
+    urls = []
+    if arch == "aarch64":
+        urls = [
+            "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/arm",
+            "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip",
+        ]
+    else:
+        urls = [
+            "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip",
+        ]
+
+    install_dir = os.path.expanduser("~/.local/bin")
+    os.makedirs(install_dir, exist_ok=True)
+
+    for url in urls:
+        print(f"  Downloading from {url}...")
+        zip_path = os.path.join(tempfile.gettempdir(), "ffmpeg_mac.zip")
+        if not _download_file(url, zip_path, description="FFmpeg for macOS"):
+            continue
+
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(install_dir)
+            ffmpeg_bin = os.path.join(install_dir, "ffmpeg")
+            if os.path.isfile(ffmpeg_bin):
+                os.chmod(ffmpeg_bin, 0o755)
+                _prepend_to_path(install_dir)
+                print(f"  FFmpeg installed to {ffmpeg_bin}")
+                return True
+        except (zipfile.BadZipFile, OSError) as e:
+            print(f"  Extraction failed: {e}", file=sys.stderr)
+            continue
+
+    return False
+
+
+# ===================================================================
+# Main entry point
+# ===================================================================
 
 def install_ffmpeg_if_needed():
-    """
-    Checks for FFmpeg and installs it if not found.
+    """Check for FFmpeg and install it if not found.
+
+    Returns 0 on success (ffmpeg is available), -1 on failure.
     """
     print("Checking for FFmpeg...")
 
     # Step 1: Check if FFmpeg is already in PATH
     if shutil.which("ffmpeg"):
-        print("FFmpeg is already installed and in PATH.")
-        return 0
+        if verify_ffmpeg():
+            print("FFmpeg is already installed and working.")
+            return 0
+        else:
+            print("FFmpeg found in PATH but failed verification.", file=sys.stderr)
+
+    # Step 1.5: Check common locations that may not be in PATH
+    extra_dir = _try_find_ffmpeg_in_common_locations()
+    if extra_dir:
+        _prepend_to_path(extra_dir)
+        if shutil.which("ffmpeg") and verify_ffmpeg():
+            print(f"FFmpeg found at {extra_dir} and added to PATH.")
+            return 0
 
     # Step 2: Install based on OS
     os_name = platform.system()
@@ -25,189 +1037,12 @@ def install_ffmpeg_if_needed():
         return install_on_windows()
     elif os_name == "Linux":
         return install_on_linux()
-    elif os_name == "Darwin":  # 'Darwin' is the system name for macOS
+    elif os_name == "Darwin":
         return install_on_macos()
     else:
         print(f"Unsupported OS: {os_name}", file=sys.stderr)
         return -1
 
-def install_on_windows():
-    """
-    Tries to install FFmpeg on Windows using a cascade of package managers,
-    falling back to a manual download if all else fails.
-    """
-    print("FFmpeg not found. Attempting to install for Windows...")
-
-    # Method 1: Try Winget (Windows Package Manager)
-    if shutil.which("winget"):
-        print("Trying to install FFmpeg using Winget...")
-        try:
-            # Use the official ID for FFmpeg from Winget
-            subprocess.run(["winget", "install", "--id", "Gyan.FFmpeg", "-e", "--accept-package-agreements", "--accept-source-agreements"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("FFmpeg installation complete via Winget.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Winget installation failed. Trying next method.", file=sys.stderr)
-            pass
-    
-    # Method 2: Try Chocolatey
-    if shutil.which("choco"):
-        print("Trying to install FFmpeg using Chocolatey...")
-        try:
-            subprocess.run(["choco", "install", "ffmpeg", "-y"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("FFmpeg installation complete via Chocolatey.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Chocolatey installation failed. Trying next method.", file=sys.stderr)
-            pass
-
-    # Method 3: Try Scoop
-    if shutil.which("scoop"):
-        print("Trying to install FFmpeg using Scoop...")
-        try:
-            subprocess.run(["scoop", "install", "ffmpeg"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("FFmpeg installation complete via Scoop.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Scoop installation failed. Trying next method.", file=sys.stderr)
-            pass
-
-    # Method 4: Manual Download (Fallback)
-    print("All package manager installations failed. Falling back to manual download.")
-    ffmpeg_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip"
-    
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_file_path = os.path.join(temp_dir, "ffmpeg_temp.zip")
-            
-            urllib.request.urlretrieve(ffmpeg_url, zip_file_path)
-            print("Download complete. Extracting...")
-            
-            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-            
-            bin_source_path = os.path.join(temp_dir, "ffmpeg-master-latest-win64-gpl-shared", "bin")
-            
-            try:
-                for item in os.listdir(bin_source_path):
-                    shutil.move(os.path.join(bin_source_path, item), os.getcwd())
-                print("FFmpeg files moved to the current directory.")
-            except Exception as e:
-                print(f"Error moving files to the current directory: {e}", file=sys.stderr)
-                print("Adding FFmpeg's bin directory to PATH instead.")
-                os.environ["PATH"] += os.pathsep + bin_source_path
-                print(f"Added {bin_source_path} to PATH.")
-            
-            return 0
-
-    except Exception as e:
-        print(f"An unexpected error occurred during manual installation: {e}", file=sys.stderr)
-        return -1
-
-def install_on_linux():
-    """
-    Installs FFmpeg using package managers for various Linux distributions.
-    """
-    print("FFmpeg not found. Attempting to install via package manager...")
-    
-    distro = get_linux_distro()
-    
-    if "arch" in distro:
-        command = ["sudo", "pacman", "-S", "--noconfirm", "ffmpeg"]
-        package_manager_name = "pacman"
-    elif "ubuntu" in distro or "debian" in distro:
-        command = ["sudo", "apt-get", "install", "-y", "ffmpeg"]
-        package_manager_name = "apt-get"
-    elif "centos" in distro or "redhat" in distro or "fedora" in distro:
-        command = ["sudo", "yum", "install", "-y", "ffmpeg"]
-        package_manager_name = "yum"
-    else:
-        print("Unsupported Linux distribution. Please install FFmpeg manually.", file=sys.stderr)
-        return -1
-    
-    try:
-        print(f"Attempting to install FFmpeg using {package_manager_name}...")
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("FFmpeg installation complete.")
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"Error installing FFmpeg with {package_manager_name}: {e}", file=sys.stderr)
-        return -1
-    except FileNotFoundError:
-        print(f"Package manager '{package_manager_name}' not found. Please install FFmpeg manually.", file=sys.stderr)
-        return -1
-
-def install_on_macos():
-    print("FFmpeg not found. Attempting to install for macOS...")
-
-    # Try Homebrew
-    if shutil.which("brew"):
-        try:
-            subprocess.run(["brew", "install", "ffmpeg"], check=True)
-            print("FFmpeg installation complete via Homebrew.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Homebrew installation failed. Trying next method.", file=sys.stderr)
-
-    # Try MacPorts
-    if shutil.which("port"):
-        try:
-            subprocess.run(["sudo", "port", "install", "ffmpeg"], check=True)
-            print("FFmpeg installation complete via MacPorts.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("MacPorts installation failed. Trying next method.", file=sys.stderr)
-
-    # Try Conda
-    if shutil.which("conda"):
-        try:
-            subprocess.run(["conda", "install", "-c", "conda-forge", "ffmpeg", "-y"], check=True)
-            print("FFmpeg installation complete via Conda.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Conda installation failed. Trying next method.", file=sys.stderr)
-
-    # Try Nix
-    if shutil.which("nix-env"):
-        try:
-            subprocess.run(["nix-env", "-iA", "nixpkgs.ffmpeg"], check=True)
-            print("FFmpeg installation complete via Nix.")
-            return 0
-        except subprocess.CalledProcessError:
-            print("Nix installation failed. Trying next method.", file=sys.stderr)
-
-    # Manual fallback
-    print("All package manager installations failed. Please install FFmpeg manually from https://ffmpeg.org/download.html", file=sys.stderr)
-    return -1
-
-
-def get_linux_distro():
-    """
-    A simplified way to detect Linux distributions.
-    """
-    if os.path.exists('/etc/os-release'):
-        with open('/etc/os-release') as f:
-            content = f.read()
-            if "ID=arch" in content:
-                return "arch"
-            elif "ID=ubuntu" in content:
-                return "ubuntu"
-            elif "ID=debian" in content:
-                return "debian"
-            elif "ID_LIKE=centos" in content or "ID=centos" in content:
-                return "centos"
-            elif "ID=fedora" in content:
-                return "fedora"
-    
-    if os.path.exists('/etc/arch-release'):
-        return "arch"
-    if os.path.exists('/etc/debian_version'):
-        return "debian"
-    if os.path.exists('/etc/redhat-release'):
-        return "redhat"
-        
-    return "unknown"
 
 if __name__ == "__main__":
-    exit_code = install_ffmpeg_if_needed()
-    sys.exit(exit_code)
+    sys.exit(install_ffmpeg_if_needed())
