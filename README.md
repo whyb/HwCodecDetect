@@ -71,13 +71,13 @@ This feature uses a fixed resolution of 1280x720 for all tests and follows the e
 
 
 ## How to Use
-You can install and use HwCodecDetect in two ways.
+You can install and use HwCodecDetect in 3 ways.
 ### Method 1: Install via PyPI (Recommended)
 This is the easiest method if you just want to use the tool quickly.
 
 1. Install: Use pip to install hwcodecdetect from the [official PyPI repository](https://pypi.org/project/hwcodecdetect).
     ```bash
-    pip install hwcodecdetect
+    pip install hwcodecdetect -U
     ```
 
 2. Run: After installation, run the hwcodecdetect command directly from your terminal.
@@ -126,7 +126,11 @@ Use this method if you have cloned the project source code from GitHub and want 
 
 ## Final effect
 Here are some possible results from a local test run:
-![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
+### Command-line tool
+![hwcodecdetect console](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
+
+### GUI tool
+![hwcodecdetect gui](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect_gui.gif)
 
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)

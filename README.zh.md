@@ -73,7 +73,7 @@
 如果您只需快速使用本工具，这是最简单的方式。
 1. 安装：通过 pip 从 [PyPI 官方仓库](https://pypi.org/project/hwcodecdetect) 安装 hwcodecdetect。
     ```bash
-    pip install hwcodecdetect
+    pip install hwcodecdetect -U
     ```
 
 2. 运行：安装完成后，直接在命令行中运行 hwcodecdetect 命令。
@@ -119,7 +119,11 @@
 
 ## 效果展示
 下面是本地运行测试的可能的结果：
-![test result](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
+### 命令行版
+![hwcodecdetect console](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
+
+### GUI版
+![hwcodecdetect gui](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect_gui.gif)
 
 ## Star增长记录
 [![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)
