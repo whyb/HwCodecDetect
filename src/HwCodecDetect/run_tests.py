@@ -14,6 +14,7 @@ from .utils import check_codec_support, get_stty_cfg, set_stty_cfg
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -663,6 +664,7 @@ def get_resource_path(relative_path):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
+
 def main():
     """Parses arguments and runs the test suite."""
     
@@ -716,7 +718,7 @@ def main():
 
     parser.add_argument(
         '--verbose',
-        action='store_true', 
+        action='store_true',
         help='Print detailed information for each test'
     )
 
@@ -727,9 +729,22 @@ def main():
         help='Disable bit-depth and chroma subsampling detection (enabled by default)'
     )
 
+    parser.add_argument(
+        '--ui',
+        action='store_true',
+        default=True,
+        help='Launch the graphical user interface'
+    )
+
     args = parser.parse_args()
     # Set bitdepth_chroma to True unless --no-bitdepth-chroma is specified
     args.bitdepth_chroma = not args.no_bitdepth_chroma
+    
+    if args.ui:
+        from .gui import launch_gui
+        launch_gui(args)
+        return
+
     run_all_tests(args)
 
 if __name__ == "__main__":

@@ -2,3 +2,8 @@
 /src/HwCodecDetect.egg-info/
 /dist/
 /src/HwCodecDetect/version.py
+/build/
+/HwCodecDetect-GUI.spec
+/launcher.py
+/pyinstall.ps1
+/.vscode/settings.json

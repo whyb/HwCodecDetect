@@ -1,3 +1,5 @@
 colorama
 tqdm
 psutil
+packaging
+requests
