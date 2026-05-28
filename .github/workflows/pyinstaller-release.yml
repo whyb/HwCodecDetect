@@ -174,9 +174,24 @@ jobs:
         if [ "${{ matrix.branch_mode }}" == "ui" ]; then
           ADD_PARAMS="--noconsole --disable-windowed-traceback"
         fi
-        
+
+        ICON_PARAMS=""
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ICON_PARAMS="--icon imgs/logo.ico"
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          mkdir -p HwCodecDetect.iconset
+          for sz in 16 32 128 256 512; do
+            sips -z $sz $sz imgs/logo.png --out HwCodecDetect.iconset/icon_${sz}x${sz}.png >/dev/null
+            sz2=$((sz * 2))
+            sips -z $sz2 $sz2 imgs/logo.png --out HwCodecDetect.iconset/icon_${sz}x${sz}@2x.png >/dev/null
+          done
+          iconutil -c icns HwCodecDetect.iconset -o imgs/logo.icns
+          ICON_PARAMS="--icon imgs/logo.icns"
+        fi
+
         pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \
           $ADD_PARAMS \
+          $ICON_PARAMS \
           --add-data "VERSION${SEP}." \
           --paths ".$SEP" \
           --distpath dist \

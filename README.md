@@ -1,5 +1,8 @@
 # FFmpeg Hardware Codec Detect Script(HwCodecDetect)
 <p align="center">
+    <img src="https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/logo.gif" width="256" />
+</p>
+<p align="center">
     <a href="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml">
         <img src="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml/badge.svg" />
     </a>
@@ -71,7 +74,10 @@ This feature uses a fixed resolution of 1280x720 for all tests and follows the e
 
 
 ## How to Use
-You can install and use HwCodecDetect in 3 ways.
+HwCodecDetect provides both a **command-line (CLI)** and a **graphical user interface (GUI)**. You can install and use it in 3 ways.
+
+> **Tip:** Add the `--ui` flag (or set the environment variable `HWCODECDETECT_GUI=1`) to launch the GUI mode instead of the default CLI.
+
 ### Method 1: Install via PyPI (Recommended)
 This is the easiest method if you just want to use the tool quickly.
 
@@ -82,13 +88,24 @@ This is the easiest method if you just want to use the tool quickly.
 
 2. Run: After installation, run the hwcodecdetect command directly from your terminal.
     ```bash
+    # CLI mode (default)
     hwcodecdetect
+
+    # GUI mode
+    hwcodecdetect --ui
     ```
 
 ### Method 2: Download and Run Executable (Standalone)
 Use this method if you prefer to run the tool without installing Python dependencies, or if the PyPI installation fails.
 
-1. Download: Go to the project's [**Releases page**](https://github.com/whyb/HwCodecDetect/releases) and download the executable file corresponding to your operating system (e.g., `HwCodecDetect-Linux-x64`, `HwCodecDetect-Windows-x64.exe`).
+Both **CLI** and **GUI** executables are available on the [**Releases page**](https://github.com/whyb/HwCodecDetect/releases):
+
+| Mode | Binary Name Example |
+|------|---------------------|
+| CLI  | `HwCodecDetect-Windows-x64.exe`, `HwCodecDetect-Linux-x64`, `HwCodecDetect-macOS-ARM64` |
+| GUI  | `HwCodecDetect-GUI-Windows-x64.exe`, `HwCodecDetect-GUI-Linux-x64`, `HwCodecDetect-GUI-macOS-ARM64` |
+
+1. Download: Go to the project's [**Releases page**](https://github.com/whyb/HwCodecDetect/releases) and download the executable file corresponding to your operating system and preferred mode (CLI or GUI).
 
 2. (Linux/macOS only) Add Execute Permission: If you are on Linux or macOS, you need to grant the downloaded file execute permission.
     ```bash
@@ -98,11 +115,19 @@ Use this method if you prefer to run the tool without installing Python dependen
 
 3. Run: Execute the file directly from your terminal.
     ```bash
-    # For Linux/macOS
+    # CLI - For Linux
     ./HwCodecDetect-Linux-x64
-
-    # For Windows (e.g., in PowerShell or Command Prompt)
+    # CLI - For MacOS
+    ./HwCodecDetect-macOS-ARM64
+    # CLI - For Windows (e.g., in PowerShell or Command Prompt)
     .\HwCodecDetect-Windows-x64.exe
+
+    # GUI - For Linux
+    ./HwCodecDetect-GUI-Linux-x64
+    # CLI - For MacOS
+    ./HwCodecDetect-GUI-macOS-ARM64
+    # GUI - For Windows
+    .\HwCodecDetect-GUI-Windows-x64.exe
     ```
 
 ### Method 3: Install from Source
@@ -121,7 +146,11 @@ Use this method if you have cloned the project source code from GitHub and want 
 
 3. Run: After the installation is complete, run the hwcodecdetect command directly.
     ```bash
+    # CLI mode (default)
     hwcodecdetect
+
+    # GUI mode
+    hwcodecdetect --ui
     ```
 
 ## Final effect

@@ -20,6 +20,7 @@ import time
 from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from .utils import get_local_version, check_codec_support, get_ffmpeg_supported_codecs
+from .color_table import ColorTable
 from .bitdepth_chroma_detect import (
     run_bitdepth_chroma_tests,
     PIXEL_FORMATS,
@@ -891,6 +892,33 @@ class _StatusDot(tk.Canvas):
         self.create_oval(pad, pad, s - pad, s - pad, fill=self._color, outline="")
 
 
+# ─── Logo Helper ──────────────────────────────────────────────────────────────
+
+def _find_logo_path(ext="gif"):
+    """Locate imgs/logo.<ext> relative to the project root."""
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.path.join(base, "imgs", f"logo.{ext}")
+
+
+def _load_logo_image(size=28):
+    """Load and resize the logo GIF image for use in tkinter. Returns a PhotoImage or None."""
+    try:
+        logo_path = _find_logo_path("gif")
+        if not os.path.exists(logo_path):
+            return None
+        img = tk.PhotoImage(file=logo_path)
+        # Subsample to resize (original must be divisible by target)
+        orig_w, orig_h = img.width(), img.height()
+        factor = max(orig_w // size, 1)
+        img = img.subsample(factor, factor)
+        return img
+    except Exception:
+        return None
+
+
 # ─── Main GUI Class ─────────────────────────────────────────────────────────
 
 class HwCodecGUI:
@@ -931,8 +959,13 @@ class HwCodecGUI:
         brand = tk.Frame(hdr_inner, bg=BG_SIDEBAR)
         brand.pack(side="left", pady=10)
 
-        tk.Label(brand, text="◈", font=(FAMILY, 18), fg=ACCENT,
-                 bg=BG_SIDEBAR).pack(side="left")
+        self._logo_img_small = _load_logo_image(32)
+        if self._logo_img_small:
+            tk.Label(brand, image=self._logo_img_small,
+                     bg=BG_SIDEBAR).pack(side="left")
+        else:
+            tk.Label(brand, text="◈", font=(FAMILY, 18), fg=ACCENT,
+                     bg=BG_SIDEBAR).pack(side="left")
         tk.Label(brand, text=" HwCodecDetect", font=(FAMILY, 14, "bold"),
                  fg=TEXT_PRIMARY, bg=BG_SIDEBAR).pack(side="left", padx=(6, 0))
         tk.Label(brand, text="v" + get_local_version(),
@@ -1625,24 +1658,36 @@ class HwCodecGUI:
         about_area = tk.Frame(page, bg=BG_ROOT)
         about_area.pack(fill="both", expand=True, padx=24, pady=20)
 
-        # Description card
-        desc_card = tk.Frame(about_area, bg=BG_SURFACE,
-                             highlightbackground=BORDER, highlightthickness=1)
-        desc_card.pack(fill="x", pady=(0, 12))
+        # App identity card with logo
+        id_card = tk.Frame(about_area, bg=BG_SURFACE,
+                           highlightbackground=BORDER, highlightthickness=1)
+        id_card.pack(fill="x", pady=(0, 12))
 
-        tk.Label(desc_card, text="  DESCRIPTION", font=(FAMILY, 9, "bold"),
-                 fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(12, 6))
+        id_inner = tk.Frame(id_card, bg=BG_SURFACE)
+        id_inner.pack(fill="x", padx=24, pady=24)
+
+        self._logo_img_large = _load_logo_image(128)
+        if self._logo_img_large:
+            tk.Label(id_inner, image=self._logo_img_large,
+                     bg=BG_SURFACE).pack(side="left")
+
+        id_text = tk.Frame(id_inner, bg=BG_SURFACE)
+        id_text.pack(side="left", padx=(16, 0))
+        tk.Label(id_text, text="HwCodecDetect", font=(FAMILY, 18, "bold"),
+                 fg=TEXT_PRIMARY, bg=BG_SURFACE).pack(anchor="w")
+        tk.Label(id_text, text=f"v{get_local_version()}",
+                 font=(FAMILY_MONO, 11), fg=ACCENT, bg=BG_SURFACE).pack(anchor="w")
+        tk.Label(id_text, text="Hardware Video Codec Detection Tool",
+                 font=(FAMILY, 10), fg=TEXT_SECONDARY, bg=BG_SURFACE).pack(anchor="w", pady=(4, 0))
 
         description = (
-            "This tool automatically detects the hardware video codec capabilities of your system.\n"
-            "Using FFmpeg, it tests various hardware codecs (like NVEnc, QSV, and VAAPI etc.)\n"
-            "by generating and processing video files at different resolutions (from 240p to 8K).\n\n"
-            "The result is a convenient summary table showing which hardware codecs are\n"
-            "available on your system and what resolutions they support."
+            "Automatically detects hardware video codec capabilities of your system.\n"
+            "Tests encoders & decoders (NVEnc, QSV, VAAPI, AMF, etc.) at resolutions\n"
+            "from 240p to 8K, including bit-depth and chroma subsampling detection."
         )
-        tk.Label(desc_card, text=description, font=(FAMILY, 10),
+        tk.Label(id_card, text=description, font=(FAMILY, 10),
                  fg=TEXT_SECONDARY, bg=BG_SURFACE, anchor="w", justify="left",
-                 wraplength=600).pack(fill="x", padx=16, pady=(0, 12))
+                 wraplength=600).pack(fill="x", padx=24, pady=(0, 20))
 
         # App info card
         info_card = tk.Frame(about_area, bg=BG_SURFACE,
@@ -1655,20 +1700,26 @@ class HwCodecGUI:
         about_frame = tk.Frame(info_card, bg=BG_SURFACE)
         about_frame.pack(fill="x", padx=16, pady=(0, 12))
 
-        for label, value in [
-            ("Application", "HwCodecDetect"),
-            ("Version", "v" + get_local_version()),
-            ("License", "BSD-3-Clause"),
-            ("Author", "whyb"),
-            ("Contact", "whyber@outlook.com"),
-            ("Repository", "github.com/whyb/HwCodecDetect"),
+        for label, value, url in [
+            ("Application", "HwCodecDetect", None),
+            ("Version", "v" + get_local_version(), None),
+            ("License", "BSD-3-Clause", None),
+            ("Author", "whyb", "https://github.com/whyb"),
+            ("Contact", "whyber@outlook.com", "mailto:whyber@outlook.com"),
+            ("Repository", "github.com/whyb/HwCodecDetect", "https://github.com/whyb/HwCodecDetect"),
         ]:
             row = tk.Frame(about_frame, bg=BG_SURFACE)
             row.pack(fill="x", pady=1)
             tk.Label(row, text=label, font=(FAMILY, 9), fg=TEXT_DIM,
                      bg=BG_SURFACE, width=14, anchor="w").pack(side="left")
-            tk.Label(row, text=value, font=(FAMILY_MONO, 9), fg=TEXT_PRIMARY,
-                     bg=BG_SURFACE, anchor="w").pack(side="left")
+            if url:
+                link = tk.Label(row, text=value, font=(FAMILY_MONO, 9),
+                                fg="#3B82F6", bg=BG_SURFACE, anchor="w", cursor="hand2")
+                link.pack(side="left")
+                link.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
+            else:
+                tk.Label(row, text=value, font=(FAMILY_MONO, 9), fg=TEXT_PRIMARY,
+                         bg=BG_SURFACE, anchor="w").pack(side="left")
 
         # Links card
         links_card = tk.Frame(about_area, bg=BG_SURFACE,
@@ -1689,114 +1740,33 @@ class HwCodecGUI:
                     command=lambda: webbrowser.open("https://github.com/whyb/HwCodecDetect/releases"),
                     font=(FAMILY, 10), padx=16, pady=6).pack(side="left", padx=(8, 0))
 
-    # ─── Treeview Table ──────────────────────────────────────────────────────
+    # ─── ColorTable ───────────────────────────────────────────────────────
 
     def _create_table(self, parent):
-        """Returns (container_frame, treeview) for a table."""
+        """Returns (container_frame, ColorTable) for a table."""
         container = tk.Frame(parent, bg=BG_ROOT)
-
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Fluent.Treeview",
-                         background=BG_SURFACE, foreground=TEXT_PRIMARY,
-                         fieldbackground=BG_SURFACE, borderwidth=0,
-                         font=(FAMILY, 9), rowheight=30)
-        style.configure("Fluent.Treeview.Heading",
-                         background=BG_ELEVATED, foreground=TEXT_SECONDARY,
-                         borderwidth=0, font=(FAMILY, 9, "bold"), relief="flat",
-                         padding=(8, 4))
-        style.map("Fluent.Treeview",
-                   background=[("selected", ACCENT_SUBTLE)],
-                   foreground=[("selected", TEXT_PRIMARY)])
-        style.map("Fluent.Treeview.Heading",
-                   background=[("active", BG_HOVER)])
-        style.layout("Fluent.Treeview",
-                     [("Fluent.Treeview.treearea", {"sticky": "nswe"})])
-
-        # Scrollbar styles (clam theme supports full color customization)
-        style.configure("Fluent.Vertical.TScrollbar",
-                         troughcolor=BG_SURFACE, background=BG_ELEVATED,
-                         bordercolor=BG_SURFACE, arrowcolor=BG_SURFACE,
-                         relief="flat", width=8)
-        style.map("Fluent.Vertical.TScrollbar",
-                   background=[("active", BG_HOVER), ("!active", BG_ELEVATED),
-                               ("disabled", BG_SURFACE)],
-                   arrowcolor=[("active", BG_HOVER), ("disabled", BG_SURFACE)])
-        style.configure("Fluent.Horizontal.TScrollbar",
-                         troughcolor=BG_SURFACE, background=BG_ELEVATED,
-                         bordercolor=BG_SURFACE, arrowcolor=BG_SURFACE,
-                         relief="flat", width=8)
-        style.map("Fluent.Horizontal.TScrollbar",
-                   background=[("active", BG_HOVER), ("!active", BG_ELEVATED),
-                               ("disabled", BG_SURFACE)],
-                   arrowcolor=[("active", BG_HOVER), ("disabled", BG_SURFACE)])
-        # Remove scrollbar arrows by setting arrow size to 0 via layout
-        style.layout("Fluent.Vertical.TScrollbar",
-                     [("Fluent.Vertical.Scrollbar.trough",
-                       {"sticky": "ns",
-                        "children": [("Fluent.Vertical.Scrollbar.thumb",
-                                      {"expand": "1", "sticky": "nswe"})]})])
-        style.layout("Fluent.Horizontal.TScrollbar",
-                     [("Fluent.Horizontal.Scrollbar.trough",
-                       {"sticky": "ew",
-                        "children": [("Fluent.Horizontal.Scrollbar.thumb",
-                                      {"expand": "1", "sticky": "nswe"})]})])
-
-        tree = ttk.Treeview(container, show="headings", style="Fluent.Treeview")
-        tree.tag_configure("row_even", background=BG_SURFACE)
-        tree.tag_configure("row_odd", background=BG_ELEVATED)
-        # Status color tags
-        tree.tag_configure("succeeded", foreground=GREEN)
-        tree.tag_configure("failed", foreground=RED)
-        tree.tag_configure("skipped", foreground=TEXT_DIM)
-        # Combined row + status tags
-        for row_tag in ("row_even", "row_odd"):
-            for status in ("succeeded", "failed", "skipped"):
-                bg = BG_SURFACE if row_tag == "row_even" else BG_ELEVATED
-                fg = {"succeeded": GREEN, "failed": RED, "skipped": TEXT_DIM}[status]
-                tree.tag_configure(f"{row_tag}_{status}", background=bg, foreground=fg)
-
-        vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview,
-                            style="Fluent.Vertical.TScrollbar")
-        hsb = ttk.Scrollbar(container, orient="horizontal", command=tree.xview,
-                            style="Fluent.Horizontal.TScrollbar")
-        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        container.rowconfigure(0, weight=1)
-        container.columnconfigure(0, weight=1)
+        table = ColorTable(container)
+        table.pack(fill="both", expand=True)
         container.grid_propagate(False)
+        table.on_cell_click(self._on_color_table_cell_click)
+        return (container, table)
 
-        tree.bind("<ButtonRelease-1>", lambda e: self._on_cell_click(e, tree))
+    def _configure_resolution_columns(self, table):
+        table.set_columns(
+            [{"title": "Codec", "width": 220, "anchor": "w", "stretch": True}]
+            + [{"title": res, "width": 60, "anchor": "center"} for res in RESOLUTIONS.keys()]
+        )
 
-        return (container, tree)
-
-    def _configure_resolution_columns(self, tree):
-        columns = ["Codec"] + list(RESOLUTIONS.keys())
-        tree["columns"] = columns
-        for col in columns:
-            tree.heading(col, text=col)
-            if col == "Codec":
-                tree.column(col, width=220, minwidth=200, anchor="w", stretch=True)
-            else:
-                tree.column(col, width=60, minwidth=50, anchor="center", stretch=False)
-
-    def _configure_bitdepth_columns(self, tree):
+    def _configure_bitdepth_columns(self, table):
         format_columns = [
             "8-bit 4:2:0", "8-bit 4:2:2", "8-bit 4:4:4",
             "10-bit 4:2:0", "10-bit 4:2:2", "10-bit 4:4:4",
             "12-bit 4:2:0", "12-bit 4:2:2", "12-bit 4:4:4",
         ]
-        columns = ["Codec"] + format_columns
-        tree["columns"] = columns
-        for col in columns:
-            tree.heading(col, text=col)
-            if col == "Codec":
-                tree.column(col, width=220, minwidth=200, anchor="w", stretch=True)
-            else:
-                tree.column(col, width=80, minwidth=60, anchor="center", stretch=False)
+        table.set_columns(
+            [{"title": "Codec", "width": 220, "anchor": "w", "stretch": True}]
+            + [{"title": c, "width": 80, "anchor": "center"} for c in format_columns]
+        )
 
     # ─── Async Update Check ──────────────────────────────────────────────────
 
@@ -2122,36 +2092,18 @@ class HwCodecGUI:
     def _clear_tables(self):
         for table in (self.table_dec_res[1], self.table_enc_res[1],
                       self.table_dec_bd[1], self.table_enc_bd[1]):
-            for row in table.get_children():
-                table.delete(row)
+            table.clear()
 
     # ─── Cell Click / Error Popup ────────────────────────────────────────────
 
-    def _on_cell_click(self, event, table):
-        region = table.identify("region", event.x, event.y)
-        if region != "cell":
-            return
-        row_id = table.identify_row(event.y)
-        col = table.identify_column(event.x)
-        if col == "#1":
-            return
-        item = table.item(row_id)
-        values = item["values"]
-        if not values:
-            return
-        codec_name = values[0]
-        col_idx = int(col[1:]) - 2
-
-        columns = list(table["columns"])
-        if col_idx < 0 or col_idx >= len(columns) - 1:
-            return
-        col_name = columns[col_idx + 1]
-
-        result = self.tooltip_data.get((table, codec_name, col_name))
-        if result:
-            status, error_msg = result
-            if status in ("failed", "skipped"):
-                self._show_error_popup(codec_name, col_name, error_msg, status)
+    def _on_color_table_cell_click(self, meta):
+        """Handle cell click from ColorTable."""
+        status = meta.get("status", "")
+        error_msg = meta.get("error_msg", "")
+        codec_name = meta.get("codec_name", "")
+        col_name = meta.get("col_name", "")
+        if status in ("failed", "skipped"):
+            self._show_error_popup(codec_name, col_name, error_msg, status)
 
     def _show_error_popup(self, codec_name, col_name, error_msg, status="failed"):
         popup = tk.Toplevel(self.root)
@@ -2250,16 +2202,16 @@ class HwCodecGUI:
         resolutions = list(RESOLUTIONS.keys())
 
         def _inner():
-            for row in table.get_children():
-                table.delete(row)
+            table.clear()
 
             filtered_titles = sorted(
                 [t for t in results.keys() if kind in t]
             ) or sorted(results.keys())
 
             for idx, title in enumerate(filtered_titles):
-                row = [title]
-                for i, res in enumerate(resolutions):
+                row_tag = "row_even" if idx % 2 == 0 else "row_odd"
+                cells = [{"text": title, "fg": TEXT_PRIMARY}]
+                for res in resolutions:
                     result = results.get(title, {}).get(res, "skipped")
                     if isinstance(result, tuple):
                         status, error_msg = result
@@ -2267,18 +2219,21 @@ class HwCodecGUI:
                         status = result
                         error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
 
-                    self.tooltip_data[(table, title, res)] = (status, error_msg)
-
                     if status == "succeeded":
-                        symbol = "✔"
+                        color = GREEN
                     elif status == "failed":
-                        symbol = "✘"
+                        color = RED
                     else:
-                        symbol = "—"
-                    row.append(symbol)
+                        color = TEXT_DIM
 
-                tag = "row_even" if idx % 2 == 0 else "row_odd"
-                table.insert("", "end", values=row, tags=(tag,))
+                    cells.append({
+                        "text": "●",
+                        "fg": color,
+                        "meta": {"codec_name": title, "col_name": res,
+                                 "status": status, "error_msg": error_msg},
+                    })
+
+                table.insert_row(cells, row_tag=row_tag)
 
         self.root.after(0, _inner)
 
@@ -2290,15 +2245,15 @@ class HwCodecGUI:
         ]
 
         def _inner():
-            for row in table.get_children():
-                table.delete(row)
+            table.clear()
 
             filtered_titles = sorted(
                 [t for t in results.keys() if kind in t]
             ) or sorted(results.keys())
 
             for idx, title in enumerate(filtered_titles):
-                row = [title]
+                row_tag = "row_even" if idx % 2 == 0 else "row_odd"
+                cells = [{"text": title, "fg": TEXT_PRIMARY}]
                 for col_name in format_columns:
                     result = results.get(title, {}).get(col_name, "skipped")
                     if isinstance(result, tuple):
@@ -2307,18 +2262,21 @@ class HwCodecGUI:
                         status = result
                         error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
 
-                    self.tooltip_data[(table, title, col_name)] = (status, error_msg)
-
                     if status == "succeeded":
-                        symbol = "✔"
+                        color = GREEN
                     elif status == "failed":
-                        symbol = "✘"
+                        color = RED
                     else:
-                        symbol = "—"
-                    row.append(symbol)
+                        color = TEXT_DIM
 
-                tag = "row_even" if idx % 2 == 0 else "row_odd"
-                table.insert("", "end", values=row, tags=(tag,))
+                    cells.append({
+                        "text": "●",
+                        "fg": color,
+                        "meta": {"codec_name": title, "col_name": col_name,
+                                 "status": status, "error_msg": error_msg},
+                    })
+
+                table.insert_row(cells, row_tag=row_tag)
 
         self.root.after(0, _inner)
 
@@ -2327,5 +2285,23 @@ def launch_gui(args):
     """Launch the GUI application."""
     root = tk.Tk()
     root.title("HwCodecDetect - Hardware Video Codec Detection Tool - v" + get_local_version())
+
+    # Set window icon
+    if sys.platform == "win32":
+        ico_path = _find_logo_path("ico")
+        if os.path.exists(ico_path):
+            try:
+                root.iconbitmap(ico_path)
+            except Exception:
+                pass
+    else:
+        gif_path = _find_logo_path("gif")
+        if os.path.exists(gif_path):
+            try:
+                logo_icon = tk.PhotoImage(file=gif_path)
+                root.iconphoto(True, logo_icon)
+            except Exception:
+                pass
+
     app = HwCodecGUI(root, args)
     root.mainloop()

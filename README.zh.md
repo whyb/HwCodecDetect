@@ -1,5 +1,8 @@
 # FFmpeg 硬件编解码器检测脚本(HwCodecDetect)
 <p align="center">
+    <img src="https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/logo.gif" width="256" />
+</p>
+<p align="center">
     <a href="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml">
         <img src="https://github.com/whyb/HwCodecDetect/actions/workflows/run-test.yml/badge.svg" />
     </a>
@@ -69,6 +72,10 @@
 
 
 ## 如何使用
+HwCodecDetect 提供 **命令行 (CLI)** 和 **图形界面 (GUI)** 两种模式。您可以通过以下 3 种方式安装和使用。
+
+> **提示：** 添加 `--ui` 参数（或设置环境变量 `HWCODECDETECT_GUI=1`）即可启动图形界面模式，而非默认的命令行模式。
+
 ### 方式一：通过 PyPI 安装 (推荐)
 如果您只需快速使用本工具，这是最简单的方式。
 1. 安装：通过 pip 从 [PyPI 官方仓库](https://pypi.org/project/hwcodecdetect) 安装 hwcodecdetect。
@@ -78,13 +85,24 @@
 
 2. 运行：安装完成后，直接在命令行中运行 hwcodecdetect 命令。
     ```bash
+    # 命令行模式（默认）
     hwcodecdetect
+
+    # 图形界面模式
+    hwcodecdetect --ui
     ```
 
 ### 方法二：下载并运行可执行文件 (独立运行)
 如果您希望在不安装 Python 依赖的情况下运行该工具，或者 PyPI 安装失败，请使用此方法。
 
-1. 下载：前往项目的 [**Releases 页面**](https://github.com/whyb/HwCodecDetect/releases)，下载与您的操作系统对应的可执行文件（例如：`HwCodecDetect-Linux-x64`、`HwCodecDetect-Windows-x64.exe`）。
+[**Releases 页面**](https://github.com/whyb/HwCodecDetect/releases) 提供 **命令行版** 和 **图形界面版** 两种可执行文件：
+
+| 模式 | 文件名示例 |
+|------|-----------|
+| 命令行版 | `HwCodecDetect-Windows-x64.exe`、`HwCodecDetect-Linux-x64`、`HwCodecDetect-macOS-ARM64` |
+| 图形界面版 | `HwCodecDetect-GUI-Windows-x64.exe`、`HwCodecDetect-GUI-Linux-x64`、`HwCodecDetect-GUI-macOS-ARM64` |
+
+1. 下载：前往项目的 [**Releases 页面**](https://github.com/whyb/HwCodecDetect/releases)，下载与您的操作系统和所需模式（命令行或图形界面）对应的可执行文件。
 
 2. （仅限 Linux/macOS）添加执行权限：如果您使用的是 Linux 或 macOS，您需要授予下载的文件执行权限。
     ```bash
@@ -94,11 +112,19 @@
 
 3. 运行：直接在终端中执行该文件。
     ```bash
-    # 适用于 Linux/macOS
+    # 命令行版 - 适用于 Linux
     ./HwCodecDetect-Linux-x64
-
-    # 适用于 Windows (例如在 PowerShell 或命令提示符(cmd)中)
+    # 命令行版 - 适用于 macOS
+    ./HwCodecDetect-macOS-ARM64
+    # 命令行版 - 适用于 Windows (例如在 PowerShell 或命令提示符(cmd)中)
     .\HwCodecDetect-Windows-x64.exe
+
+    # 图形界面版 - 适用于 Linux
+    ./HwCodecDetect-GUI-Linux-x64
+    # 图形界面版 - 适用于 macOS
+    ./HwCodecDetect-GUI-macOS-ARM64
+    # 图形界面版 - 适用于 Windows
+    .\HwCodecDetect-GUI-Windows-x64.exe
     ```
 
 ### 方式三：从源码本地安装
@@ -114,7 +140,11 @@
     ```
 3. 运行：安装完成后，直接在命令行中运行 hwcodecdetect 命令。
     ```bash
+    # 命令行模式（默认）
     hwcodecdetect
+
+    # 图形界面模式
+    hwcodecdetect --ui
     ```
 
 ## 效果展示
