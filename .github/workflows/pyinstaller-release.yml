@@ -3,7 +3,7 @@ name: PyInstaller Build and Release Binaries
 on:
   push:
     tags: [ "v*.*.*" ]
-    branches: [ "main", "testci", "ui" ]
+    branches: [ "main", "testci" ]
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ======================== MAIN BRANCH (CLI) ========================
+          # ======================== CLI BUILDS ========================
           - os: windows-latest
             python_arch: 'x64'
             asset_name: HwCodecDetect-Windows-x64.exe
@@ -67,7 +67,7 @@ jobs:
             asset_name: HwCodecDetect-Linux-x86
             branch_mode: main
 
-          # ======================== UI BRANCH (GUI) ========================
+          # ======================== GUI BUILDS ========================
           - os: windows-latest
             python_arch: 'x64'
             asset_name: HwCodecDetect-GUI-Windows-x64.exe
@@ -114,8 +114,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: ${{ matrix.branch_mode }}
 
     - name: Set App Name
       shell: bash
@@ -129,7 +127,20 @@ jobs:
     - name: Create Entry Point Script
       shell: bash
       run: |
-        cat > ${{ env.ENTRY_POINT_SCRIPT }} <<EOF
+        if [ "${{ matrix.branch_mode }}" == "ui" ]; then
+          cat > ${{ env.ENTRY_POINT_SCRIPT }} <<EOF
+        import runpy
+        import sys
+        import os
+        os.environ["HWCODECDETECT_GUI"] = "1"
+        sys.path.append(os.path.abspath("."))
+        if False:
+            import src.HwCodecDetect.run_tests
+        if __name__ == "__main__":
+            runpy.run_module('src.HwCodecDetect.run_tests', run_name='__main__', alter_sys=True)
+        EOF
+        else
+          cat > ${{ env.ENTRY_POINT_SCRIPT }} <<EOF
         import runpy
         import sys
         import os
@@ -139,6 +150,7 @@ jobs:
         if __name__ == "__main__":
             runpy.run_module('src.HwCodecDetect.run_tests', run_name='__main__', alter_sys=True)
         EOF
+        fi
 
     - name: Set up Python (Native)
       if: matrix.job_type == 'native'
@@ -233,8 +245,8 @@ jobs:
           name: "${{ github.ref_name }}"
           body: |
             ### Automated multi-platform build for CLI and GUI.
-            - **CLI Version**: main branch
-            - **GUI Version**: ui branch
+            - **CLI Version**: default mode (no GUI)
+            - **GUI Version**: auto-enabled (--ui flag or HWCODECDETECT_GUI=1 env var)
             ### Supported Platforms:
             - **Windows**: x64, x86 (32-bit)
             - **macOS**: Apple Silicon (ARM64), Intel (x64)

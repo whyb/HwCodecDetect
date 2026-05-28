@@ -730,17 +730,18 @@ def main():
     )
 
     parser.add_argument(
-        '--ui',
+        '--ui', '-ui',
         action='store_true',
-        default=True,
-        help='Launch the graphical user interface'
+        default=False,
+        help='Launch the graphical user interface (default: CLI mode)'
     )
 
     args = parser.parse_args()
     # Set bitdepth_chroma to True unless --no-bitdepth-chroma is specified
     args.bitdepth_chroma = not args.no_bitdepth_chroma
-    
-    if args.ui:
+
+    # Check --ui flag OR environment variable (for CI GUI builds)
+    if args.ui or os.environ.get("HWCODECDETECT_GUI") == "1":
         from .gui import launch_gui
         launch_gui(args)
         return
