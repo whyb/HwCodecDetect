@@ -2,24 +2,19 @@
 Custom Color Table Widget for HwCodecDetect GUI.
 Provides per-cell color control using tkinter Canvas + Label grid.
 """
-import sys
 import tkinter as tk
 from tkinter import ttk
-
-
-# ─── Theme constants (mirrored from gui.py to avoid circular imports) ─────
-_BG_ROOT       = "#1b1d23"
-_BG_SURFACE    = "#272a33"
-_BG_ELEVATED   = "#2f3240"
-_BG_HOVER      = "#3a3e50"
-_BORDER        = "#3a3d48"
-_TEXT_PRIMARY   = "#ecedf2"
-_TEXT_SECONDARY = "#9197a8"
-_TEXT_DIM       = "#626878"
-
-_FAMILY = "Segoe UI"
-if sys.platform != "win32":
-    _FAMILY = "Helvetica Neue"
+from .theme import (
+    BG_ROOT as _BG_ROOT,
+    BG_SURFACE as _BG_SURFACE,
+    BG_ELEVATED as _BG_ELEVATED,
+    BG_HOVER as _BG_HOVER,
+    BORDER as _BORDER,
+    TEXT_PRIMARY as _TEXT_PRIMARY,
+    TEXT_SECONDARY as _TEXT_SECONDARY,
+    TEXT_DIM as _TEXT_DIM,
+    FAMILY as _FAMILY,
+)
 
 
 class ColorTable(tk.Frame):

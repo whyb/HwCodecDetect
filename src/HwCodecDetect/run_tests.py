@@ -2,15 +2,17 @@ import os
 import re
 import sys
 import platform
-import shlex
-import subprocess
 import shutil
-import tempfile
 import argparse
 from collections import defaultdict
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
 from .bitdepth_chroma_detect import run_bitdepth_chroma_tests, print_bitdepth_chroma_results
-from .utils import check_codec_support, get_stty_cfg, set_stty_cfg
+from .codec_defs import RESOLUTIONS, DECODER_TITLES, ENCODER_TITLES, DECODERS, ENCODERS, ALL_CODECS
+from .utils import (
+    check_codec_support, get_stty_cfg, set_stty_cfg,
+    run_ffmpeg_command, get_display_width, get_file_extension,
+    prepare_temp_dir, print_codec_support_report, format_verbose_log,
+)
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -24,140 +26,6 @@ except ImportError:
 
 init(autoreset=True)
 
-# Step 0: Define the data for codecs and resolutions
-# This approach avoids massive code duplication.
-RESOLUTIONS = {
-    "240p": "426x240",
-    "360p": "640x360",
-    "480p": "854x480",
-    "720p": "1280x720",
-    "1080p": "1920x1080",
-    "2K": "2560x1440",
-    "4K": "3840x2160",
-    "8K": "7680x4320",
-}
-
-# Mapping of a decoder's ffmpeg name and codec to its descriptive title
-DECODER_TITLES = {
-    ("h264_cuvid", "h264"): "NVIDIA CUDA H264 Decoder(NVDEC)",
-    ("h264_qsv", "h264"): "Intel Quick Sync Video H264 Decoder(QSV)",
-    ("hevc_cuvid", "h265"): "NVIDIA CUDA H265 Decoder(NVDEC)",
-    ("hevc_qsv", "h265"): "Intel Quick Sync Video H265 Decoder(QSV)",
-    ("av1_cuvid", "av1"): "NVIDIA CUDA AV1 Decoder(NVDEC)",
-    ("av1_qsv", "av1"): "Intel Quick Sync Video AV1 Decoder(QSV)",
-    ("mjpeg_cuvid", "mjpeg"): "NVIDIA CUDA MJPEG Decoder(NVDEC)",
-    ("mjpeg_qsv", "mjpeg"): "Intel Quick Sync Video MJPEG Decoder(QSV)",
-    ("mpeg1_cuvid", "mpeg1"): "NVIDIA CUDA MPEG-1 Decoder(NVDEC)",
-    ("mpeg2_cuvid", "mpeg2"): "NVIDIA CUDA MPEG-2 Decoder(NVDEC)",
-    ("mpeg2_qsv", "mpeg2"): "Intel Quick Sync Video MPEG-2 Decoder(QSV)",
-    ("mpeg4_cuvid", "mpeg4"): "NVIDIA CUDA MPEG-4 Decoder(NVDEC)",
-    ("vp8_cuvid", "vp8"): "NVIDIA CUDA VP8 Decoder(NVDEC)",
-    ("vp8_qsv", "vp8"): "Intel Quick Sync Video VP8 Decoder(QSV)",
-    ("vp9_cuvid", "vp9"): "NVIDIA CUDA VP9 Decoder(NVDEC)",
-    ("vp9_qsv", "vp9"): "Intel Quick Sync Video VP9 Decoder(QSV)",
-    ("dxva2", "h264"): "Microsoft DirectX Video Acceleration H264 Decoder(DXVA2)",
-    ("dxva2", "h265"): "Microsoft DirectX Video Acceleration H265 Decoder(DXVA2)",
-    ("dxva2", "av1"): "Microsoft DirectX Video Acceleration AV1 Decoder(DXVA2)",
-    ("dxva2", "mjpeg"): "Microsoft DirectX Video Acceleration MJPEG Decoder(DXVA2)",
-    ("dxva2", "mpeg1"): "Microsoft DirectX Video Acceleration MPEG-1 Decoder(DXVA2)",
-    ("dxva2", "mpeg2"): "Microsoft DirectX Video Acceleration MPEG-2 Decoder(DXVA2)",
-    ("dxva2", "mpeg4"): "Microsoft DirectX Video Acceleration MPEG-4 Decoder(DXVA2)",
-    ("dxva2", "vp8"): "Microsoft DirectX Video Acceleration VP8 Decoder(DXVA2)",
-    ("dxva2", "vp9"): "Microsoft DirectX Video Acceleration VP9 Decoder(DXVA2)",
-    ("d3d11va", "h264"): "Microsoft Direct3D 11 Video Acceleration H264 Decoder(D3D11VA)",
-    ("d3d11va", "h265"): "Microsoft Direct3D 11 Video Acceleration H265 Decoder(D3D11VA)",
-    ("d3d11va", "av1"): "Microsoft Direct3D 11 Video Acceleration AV1 Decoder(D3D11VA)",
-    ("d3d11va", "mjpeg"): "Microsoft Direct3D 11 Video Acceleration MJPEG Decoder(D3D11VA)",
-    ("d3d11va", "mpeg1"): "Microsoft Direct3D 11 Video Acceleration MPEG-1 Decoder(D3D11VA)",
-    ("d3d11va", "mpeg2"): "Microsoft Direct3D 11 Video Acceleration MPEG-2 Decoder(D3D11VA)",
-    ("d3d11va", "mpeg4"): "Microsoft Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
-    ("d3d11va", "vp8"): "Microsoft Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
-    ("d3d11va", "vp9"): "Microsoft Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
-    ("d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Decoder(D3D12VA)",
-    ("d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Decoder(D3D12VA)",
-    ("d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Decoder(D3D12VA)",
-    ("d3d12va", "mjpeg"): "Microsoft Direct3D 12 Video Acceleration MJPEG Decoder(D3D12VA)",
-    ("d3d12va", "mpeg1"): "Microsoft Direct3D 12 Video Acceleration MPEG-1 Decoder(D3D12VA)",
-    ("d3d12va", "mpeg2"): "Microsoft Direct3D 12 Video Acceleration MPEG-2 Decoder(D3D12VA)",
-    ("d3d12va", "mpeg4"): "Microsoft Direct3D 12 Video Acceleration MPEG-4 Decoder(D3D12VA)",
-    ("d3d12va", "vp8"): "Microsoft Direct3D 12 Video Acceleration VP8 Decoder(D3D12VA)",
-    ("d3d12va", "vp9"): "Microsoft Direct3D 12 Video Acceleration VP9 Decoder(D3D12VA)",
-    ("vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
-    ("vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
-    ("vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
-    ("videotoolbox", "h264"): "Apple macOS Hardware H264 Decoder(VideoToolbox)",
-    ("videotoolbox", "h265"): "Apple macOS Hardware H265 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg2"): "Apple macOS Hardware MPEG-2 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg4"): "Apple macOS Hardware MPEG-4 Decoder(VideoToolbox)",
-    ("videotoolbox", "prores"): "Apple macOS Hardware ProRes Decoder(VideoToolbox)",
-    ("videotoolbox", "vp9"): "Apple macOS Hardware VP9 Decoder(VideoToolbox)",
-}
-
-DECODERS = {
-    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va", "d3d12va", "vulkan", "videotoolbox"]},
-    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va", "d3d12va", "vulkan", "videotoolbox"]},
-    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va", "d3d12va", "vulkan"]},
-    "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va", "d3d12va"]},
-    "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va", "d3d12va"]},
-    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va", "d3d12va"]},
-    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "prores": {"lib": "prores", "hw_decoders": ["videotoolbox"]},
-}
-
-# --- Encoder Definitions ---
-ENCODER_TITLES = {
-    ("h264_nvenc", "h264"): "NVIDIA Hardware H264 Encoder(NVEnc)",
-    ("hevc_nvenc", "h265"): "NVIDIA Hardware H265 Encoder(NVEnc)",
-    ("av1_nvenc", "av1"): "NVIDIA Hardware AV1 Encoder(NVEnc)",
-    ("h264_qsv", "h264"): "Intel Hardware H264 Encoder(QSV)",
-    ("hevc_qsv", "h265"): "Intel Hardware H265 Encoder(QSV)",
-    ("av1_qsv", "av1"): "Intel Hardware AV1 Encoder(QSV)",
-    ("mjpeg_qsv", "mjpeg"): "Intel Hardware MJPEG Encoder(QSV)",
-    ("mpeg2_qsv", "mpeg2"): "Intel Hardware MPEG-2 Encoder(QSV)",
-    ("vp9_qsv", "vp9"): "Intel Hardware VP9 Encoder(QSV)",
-    ("h264_amf", "h264"): "AMD Hardware H264 Encoder(AMF)",
-    ("hevc_amf", "h265"): "AMD Hardware H265 Encoder(AMF)",
-    ("av1_amf", "av1"): "AMD Hardware AV1 Encoder(AMF)",
-    ("h264_mf", "h264"): "Microsoft Hardware H264 Encoder(MediaFoundation)",
-    ("hevc_mf", "h265"): "Microsoft Hardware H265 Encoder(MediaFoundation)",
-    ("av1_mf", "av1"): "Microsoft Hardware AV1 Encoder(MediaFoundation)",
-    ("h264_d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Encoder(D3D12VA)",
-    ("hevc_d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Encoder(D3D12VA)",
-    ("av1_d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Encoder(D3D12VA)",
-    ("h264_vaapi", "h264"): "Video Acceleration H264 Encoder(VAAPI)",
-    ("hevc_vaapi", "h265"): "Video Acceleration H265 Encoder(VAAPI)",
-    ("av1_vaapi", "av1"): "Video Acceleration AV1 Encoder(VAAPI)",
-    ("mjpeg_vaapi", "mjpeg"): "Video Acceleration MJPEG Encoder(VAAPI)",
-    ("mpeg2_vaapi", "mpeg2"): "Video Acceleration MPEG-2 Encoder(VAAPI)",
-    ("vp8_vaapi", "vp8"): "Video Acceleration VP8 Encoder(VAAPI)",
-    ("vp9_vaapi", "vp9"): "Video Acceleration VP9 Encoder(VAAPI)",
-    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder(Vulkan)",
-    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
-    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Encoder(Vulkan)",
-    ("h264_videotoolbox", "h264"): "Apple macOS Hardware H264 Encoder(VideoToolbox)",
-    ("hevc_videotoolbox", "h265"): "Apple macOS Hardware H265 Encoder(VideoToolbox)",
-    ("prores_videotoolbox", "prores"): "Apple macOS Hardware ProRes Encoder(VideoToolbox)",
-}
-
-ENCODERS = {
-    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_d3d12va", "h264_vaapi", "h264_vulkan", "h264_videotoolbox"]},
-    "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_d3d12va", "hevc_vaapi", "hevc_vulkan", "hevc_videotoolbox"]},
-    "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_mf", "av1_d3d12va", "av1_vaapi", "av1_vulkan"]},
-    "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
-    "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
-    "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
-    "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
-    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox"]},
-}
-
-# Combine both decoder and encoder data into a single structure
-# This makes it easier to work with all codecs and their associated CPU libs
-ALL_CODECS = {
-    **DECODERS,
-    **{k: v for k, v in ENCODERS.items() if k not in DECODERS}
-}
 
 def get_available_memory():
     # --- plan A. use psutil ---
@@ -255,24 +123,6 @@ if available_memory > 0:
     CONCURRENT_DECODER_COUNT = min(CONCURRENT_DECODER_COUNT, 8)
 
 
-def _run_ffmpeg_command(command, verbose):
-    """Executes an FFmpeg command and returns True on success, False on failure."""
-    try:
-        stdout = subprocess.PIPE if verbose else subprocess.DEVNULL
-        stderr = subprocess.PIPE if verbose else subprocess.DEVNULL
-        result = subprocess.run(
-            command,
-            check=True,
-            stdout=stdout,
-            stderr=stderr,
-            text=True
-        )
-        return (result.returncode == 0, result.stdout, result.stderr)
-    except subprocess.CalledProcessError as e:
-        return (False, e.stdout, e.stderr)
-    except FileNotFoundError:
-        return (False, "", "FFmpeg executable not found")
-
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
     codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders = test_data
@@ -282,10 +132,7 @@ def _run_encoder_test_single(test_data):
         title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
         return title, res_name, "skipped"
 
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
     if "vulkan" in encoder:
         command = [
@@ -336,7 +183,7 @@ def _run_encoder_test_single(test_data):
     if verbose: # if verbose then replace loglevel to verbose
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     # If encoding failed, clean up the output file so decoder tests don't try to use a corrupt file
@@ -346,31 +193,8 @@ def _run_encoder_test_single(test_data):
         except OSError:
             pass
 
-
     if verbose:
-        info_str = f"codec: {codec}, encoder: {encoder}, resolution: {res_size}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Encoder Detect Info]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Encoder Detect Info", codec, f"encoder: {encoder}", res_size, status, stdout, stderr, command)
 
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     return title, res_name, status
@@ -395,7 +219,7 @@ def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_run_encoder_test_single, task) for task in tasks]
-            
+
             for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder tests"):
                 title, res_name, status = future.result()
                 results[title][res_name] = status
@@ -413,10 +237,7 @@ def _run_decoder_test_single(test_data):
         title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
         return title, res_name, "skipped"
 
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
     found_file = False
@@ -428,7 +249,7 @@ def _run_decoder_test_single(test_data):
                 test_file_path = candidate_path
                 found_file = True
                 break
-    
+
     if not found_file:
         cpu_lib = ALL_CODECS[codec]["lib"]
         command = [
@@ -437,7 +258,7 @@ def _run_decoder_test_single(test_data):
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
         ]
-        if not _run_ffmpeg_command(command, verbose):
+        if not run_ffmpeg_command(command, verbose)[0]:
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, res_name, "skipped"
 
@@ -475,33 +296,11 @@ def _run_decoder_test_single(test_data):
     if verbose: # if verbose then replace loglevel to verbose
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     if verbose:
-        info_str = f"codec: {codec}, decoder: {hw_decoder}, resolution: {res_size}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Decoder Detect Info]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Decoder Detect Info", codec, f"decoder: {hw_decoder}", res_size, status, stdout, stderr, command)
 
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     return title, res_name, status
@@ -535,32 +334,25 @@ def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None
 
     return results
 
-def _get_display_width(s):
-    """
-    Calculates the display width of a string, ignoring ANSI escape codes.
-    """
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return len(ansi_escape.sub('', s))
-
 def _print_summary_table(results):
     """Prints a formatted summary table of all test results."""
     GREEN_CHECK = Fore.GREEN + "✓" + Style.RESET_ALL
     RED_X = Fore.RED + "×" + Style.RESET_ALL
     GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
-    
+
     resolutions = list(RESOLUTIONS.keys())
-    
+
     decoder_titles = sorted([t for t in results.keys() if "Decoder" in t])
     encoder_titles = sorted([t for t in results.keys() if "Encoder" in t])
 
     res_width = max(len(res) for res in resolutions)
-    row_header_width = max([_get_display_width(t) for t in results.keys()] + [20, _get_display_width("Decoder"), _get_display_width("Encoder")])
+    row_header_width = max([get_display_width(t) for t in results.keys()] + [20, get_display_width("Decoder"), get_display_width("Encoder")])
 
     if decoder_titles:
         print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
         header_text = "Decoder"
-        padding_left = (row_header_width - _get_display_width(header_text)) // 2
-        padding_right = row_header_width - _get_display_width(header_text) - padding_left
+        padding_left = (row_header_width - get_display_width(header_text)) // 2
+        padding_right = row_header_width - get_display_width(header_text) - padding_left
         header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
         line_row = f"|-{'-' * row_header_width}-|"
         for res in resolutions:
@@ -570,12 +362,12 @@ def _print_summary_table(results):
         print(line_row)
 
         for title in decoder_titles:
-            padding_needed = row_header_width - _get_display_width(title)
+            padding_needed = row_header_width - get_display_width(title)
             row_string = f"| {title}{' ' * padding_needed} |"
             for res in resolutions:
                 status = results.get(title, {}).get(res, "skipped")
                 symbol = GREEN_CHECK if status == "succeeded" else RED_X if status == "failed" else GRAY_DASH
-                symbol_width = _get_display_width(symbol)
+                symbol_width = get_display_width(symbol)
                 padding_left = (res_width - symbol_width) // 2
                 padding_right = res_width - symbol_width - padding_left
                 row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
@@ -585,8 +377,8 @@ def _print_summary_table(results):
     if encoder_titles:
         print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
         header_text = "Encoder"
-        padding_left = (row_header_width - _get_display_width(header_text)) // 2
-        padding_right = row_header_width - _get_display_width(header_text) - padding_left
+        padding_left = (row_header_width - get_display_width(header_text)) // 2
+        padding_right = row_header_width - get_display_width(header_text) - padding_left
         header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
         line_row = f"|-{'-' * row_header_width}-|"
         for res in resolutions:
@@ -596,12 +388,12 @@ def _print_summary_table(results):
         print(line_row)
 
         for title in encoder_titles:
-            padding_needed = row_header_width - _get_display_width(title)
+            padding_needed = row_header_width - get_display_width(title)
             row_string = f"| {title}{' ' * padding_needed} |"
             for res in resolutions:
                 status = results.get(title, {}).get(res, "skipped")
                 symbol = GREEN_CHECK if status == "succeeded" else RED_X if status == "failed" else GRAY_DASH
-                symbol_width = _get_display_width(symbol)
+                symbol_width = get_display_width(symbol)
                 padding_left = (res_width - symbol_width) // 2
                 padding_right = res_width - symbol_width - padding_left
                 row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
@@ -620,29 +412,19 @@ def run_all_tests(args):
     # Check codec support before running tests
     print("\nChecking FFmpeg codec support...")
     unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
-    if unsupported_encoders or unsupported_decoders:
-        print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
-        print("These codecs will be marked as unavailable '-' in the results.\n")
-    else:
-        print("All defined hardware codecs are supported.\n")
+    print_codec_support_report(unsupported_encoders, unsupported_decoders)
 
-    #temp_dir = os.path.join(tempfile.gettempdir(), "HwCodecDetect")
-    from .utils import get_temp_path
-    temp_dir = os.path.join(get_temp_path(), "HwCodecDetect_cli")
-    if os.path.exists(temp_dir):
-        # Clear previous run data to ensure a fresh test
-        shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir, exist_ok=True)
-        
+    temp_dir = prepare_temp_dir("cli")
+
     encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose, unsupported_encoders)
     decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose, unsupported_decoders)
 
     all_results = {}
     all_results.update(encoder_results)
     all_results.update(decoder_results)
-    
+
     _print_summary_table(all_results)
-    
+
     # Run bit-depth and chroma tests if enabled
     if getattr(args, 'bitdepth_chroma', True):
         print("\n" + "=" * 60)
@@ -659,15 +441,21 @@ def run_all_tests(args):
 
     return
 
-def get_resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
-
 
 def main():
     """Parses arguments and runs the test suite."""
-    
+
+    # Ensure stdout/stderr use UTF-8 on Windows to avoid UnicodeEncodeError
+    # when printing Unicode characters (✓/×/—) to GBK/CP936 consoles.
+    if sys.platform == "win32":
+        for stream_name in ("stdout", "stderr"):
+            stream = getattr(sys, stream_name, None)
+            if stream is not None and hasattr(stream, "reconfigure"):
+                try:
+                    stream.reconfigure(encoding="utf-8", errors="replace")
+                except Exception:
+                    pass
+
     help_text = """
     This tool automatically detects the hardware video codec capabilities of your system.
     Using FFmpeg, it tests various hardware codecs (like NVEnc, QSV, and VAAPI etc.)
@@ -684,7 +472,7 @@ def main():
     parser = argparse.ArgumentParser(description="""
     A tool to detect hardware video encoder and decoder capabilities.
     """ + help_text, formatter_class=argparse.RawTextHelpFormatter)
-    
+
     parser.add_argument(
         "-ec", "--encoder-count",
         type=int,
@@ -692,7 +480,7 @@ def main():
         help=f"Set the number of multi-process concurrent encoder testing. (default: {CONCURRENT_ENCODER_COUNT}) "
              f"\nNote: NVIDIA RTX cards driver have limit of 8 concurrent encodes."
     )
-    
+
     parser.add_argument(
         "-dc", "--decoder-count",
         type=int,
@@ -711,7 +499,7 @@ def main():
 
     parser.add_argument(
         "-v", "--version",
-        action="version", 
+        action="version",
         version=f"HwCodecDetect v{version_str}",
         help="Show program's version number and exit."
     )

@@ -1,8 +1,10 @@
 import os
 import os.path
+import shutil
 import tempfile
 import sys
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -86,6 +88,7 @@ def get_ffmpeg_supported_codecs():
             encoding='utf-8',
             errors='ignore',
             creationflags=creation_flags,
+            timeout=10,
         )
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
@@ -103,6 +106,7 @@ def get_ffmpeg_supported_codecs():
             encoding='utf-8',
             errors='ignore',
             creationflags=creation_flags,
+            timeout=10,
         )
         if result.returncode == 0:
             for line in result.stdout.split('\n'):
@@ -119,6 +123,7 @@ def get_ffmpeg_supported_codecs():
             encoding='utf-8',
             errors='ignore',
             creationflags=creation_flags,
+            timeout=10,
         )
         if result.returncode == 0:
             lines = result.stdout.split('\n')
@@ -183,3 +188,163 @@ def set_stty_cfg(cfg):
         subprocess.run(["stty", cfg])
     except:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Shared FFmpeg subprocess helpers
+# ---------------------------------------------------------------------------
+
+def run_ffmpeg_command(command, verbose=True, timeout=10):
+    """Execute an FFmpeg command and return (success, stdout, stderr).
+
+    Uses CREATE_NO_WINDOW on Windows to prevent console window flashes.
+    Always captures stdout/stderr via PIPE.
+    Kills the process if it exceeds *timeout* seconds (default: 10).
+    """
+    creation_flags = 0
+    if sys.platform == "win32":
+        creation_flags = subprocess.CREATE_NO_WINDOW
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            creationflags=creation_flags,
+            text=True,
+            timeout=timeout,
+        )
+        return (result.returncode == 0, result.stdout, result.stderr)
+    except subprocess.TimeoutExpired:
+        return (False, "", f"FFmpeg command timed out after {timeout}s")
+    except subprocess.CalledProcessError as e:
+        return (False, e.stdout, e.stderr)
+    except FileNotFoundError:
+        return (False, "", "FFmpeg executable not found")
+
+
+def get_file_extension(codec):
+    """Return the appropriate file extension for a given codec."""
+    if codec == "prores":
+        return ".mov"
+    if codec in ("vp8", "vp9"):
+        return ".webm"
+    return ".mp4"
+
+
+def format_verbose_log(test_label, codec, name, key, status, stdout, stderr, command):
+    """Format and print a verbose FFmpeg test log block."""
+    info_str = f"codec: {codec}, {name}, resolution/format: {key}, status: {status}"
+    command_str = " ".join(shlex.quote(arg) for arg in command)
+    if stdout and stdout.strip() and stderr and stderr.strip():
+        command_log = f"{stdout.strip()}\n{stderr.strip()}"
+    elif stdout and stdout.strip():
+        command_log = stdout.strip()
+    elif stderr and stderr.strip():
+        command_log = stderr.strip()
+    else:
+        command_log = "(none)"
+    log_message = f"""
+==================================================
+[{test_label}]
+{info_str}
+
+[FFmpeg Command]
+{command_str}
+
+[Command Log]
+{command_log}
+
+""".strip()
+    print(log_message)
+
+
+# ---------------------------------------------------------------------------
+# ANSI / display helpers
+# ---------------------------------------------------------------------------
+
+_ANSI_ESCAPE_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+
+def get_display_width(s):
+    """Calculate the display width of a string, ignoring ANSI escape codes."""
+    return len(_ANSI_ESCAPE_RE.sub('', s))
+
+
+# ---------------------------------------------------------------------------
+# Pixel format helpers
+# ---------------------------------------------------------------------------
+
+def get_out_pix_fmt(bit_depth, chroma):
+    """Map (bit_depth, chroma) to the output pixel format string."""
+    if bit_depth == 8:
+        if chroma == "4:2:0":
+            return "yuv420p"
+        elif chroma == "4:2:2":
+            return "yuv422p"
+        else:
+            return "yuv444p"
+    elif bit_depth == 10:
+        if chroma == "4:2:0":
+            return "p010le"
+        elif chroma == "4:2:2":
+            return "yuv422p10le"
+        else:
+            return "yuv444p10le"
+    else:  # 12-bit
+        if chroma == "4:2:0":
+            return "yuv420p12le"
+        elif chroma == "4:2:2":
+            return "yuv422p12le"
+        else:
+            return "yuv444p12le"
+
+
+# ---------------------------------------------------------------------------
+# Resource / temp directory helpers
+# ---------------------------------------------------------------------------
+
+def get_resource_path(relative_path):
+    """Resolve a resource path, handling PyInstaller _MEIPASS."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
+def prepare_temp_dir(suffix):
+    """Create a clean temporary directory for HwCodecDetect tests.
+
+    Removes any existing directory with the same name first.
+    On Windows, kills lingering ffmpeg processes that may hold file locks.
+    Returns the path to the new directory.
+    """
+    temp_dir = os.path.join(get_temp_path(), f"HwCodecDetect_{suffix}")
+    if os.path.exists(temp_dir):
+        # On Windows, lingering ffmpeg processes from a previous (possibly
+        # interrupted) run can hold file locks.  Kill them so rmtree succeeds.
+        if sys.platform == "win32":
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "ffmpeg.exe"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                )
+            except Exception:
+                pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    os.makedirs(temp_dir, exist_ok=True)
+    return temp_dir
+
+
+# ---------------------------------------------------------------------------
+# Codec support reporting
+# ---------------------------------------------------------------------------
+
+def print_codec_support_report(unsupported_encoders, unsupported_decoders):
+    """Print a summary of unsupported codecs."""
+    if unsupported_encoders or unsupported_decoders:
+        print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
+        print("These codecs will be marked as unavailable '-' in the results.\n")
+    else:
+        print("All defined hardware codecs are supported.\n")

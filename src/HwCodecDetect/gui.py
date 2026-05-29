@@ -6,7 +6,6 @@ Fluent Design + macOS-inspired modern dark theme.
 import os
 import sys
 import shutil
-import tempfile
 import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
@@ -19,189 +18,29 @@ import subprocess
 import time
 from packaging import version
 from .install_ffmpeg_if_needed import install_ffmpeg_if_needed
-from .utils import get_local_version, check_codec_support, get_ffmpeg_supported_codecs
-from .color_table import ColorTable
-from .bitdepth_chroma_detect import (
-    run_bitdepth_chroma_tests,
-    PIXEL_FORMATS,
-    BITDEPTH_CHROMA_RESOLUTION,
+from .utils import (
+    get_local_version, check_codec_support, get_ffmpeg_supported_codecs,
+    run_ffmpeg_command, get_file_extension, get_out_pix_fmt,
+    prepare_temp_dir, print_codec_support_report, format_verbose_log,
+)
+from .codec_defs import (
+    RESOLUTIONS, DECODER_TITLES, ENCODER_TITLES, DECODERS, ENCODERS, ALL_CODECS,
+    PIXEL_FORMATS, BITDEPTH_CHROMA_RESOLUTION,
     ENCODER_TITLES as BD_ENCODER_TITLES,
     DECODER_TITLES as BD_DECODER_TITLES,
     ENCODERS as BD_ENCODERS,
     DECODERS as BD_DECODERS,
 )
-
-# Resolution definitions
-RESOLUTIONS = {
-    "240p": "426x240",
-    "360p": "640x360",
-    "480p": "854x480",
-    "720p": "1280x720",
-    "1080p": "1920x1080",
-    "2K": "2560x1440",
-    "4K": "3840x2160",
-    "8K": "7680x4320",
-}
-
-# Decoder titles
-DECODER_TITLES = {
-    ("h264_cuvid", "h264"): "NVIDIA CUDA H264 Decoder(NVDEC)",
-    ("h264_qsv", "h264"): "Intel Quick Sync Video H264 Decoder(QSV)",
-    ("hevc_cuvid", "h265"): "NVIDIA CUDA H265 Decoder(NVDEC)",
-    ("hevc_qsv", "h265"): "Intel Quick Sync Video H265 Decoder(QSV)",
-    ("av1_cuvid", "av1"): "NVIDIA CUDA AV1 Decoder(NVDEC)",
-    ("av1_qsv", "av1"): "Intel Quick Sync Video AV1 Decoder(QSV)",
-    ("mjpeg_cuvid", "mjpeg"): "NVIDIA CUDA MJPEG Decoder(NVDEC)",
-    ("mjpeg_qsv", "mjpeg"): "Intel Quick Sync Video MJPEG Decoder(QSV)",
-    ("mpeg1_cuvid", "mpeg1"): "NVIDIA CUDA MPEG-1 Decoder(NVDEC)",
-    ("mpeg2_cuvid", "mpeg2"): "NVIDIA CUDA MPEG-2 Decoder(NVDEC)",
-    ("mpeg2_qsv", "mpeg2"): "Intel Quick Sync Video MPEG-2 Decoder(QSV)",
-    ("mpeg4_cuvid", "mpeg4"): "NVIDIA CUDA MPEG-4 Decoder(NVDEC)",
-    ("vp8_cuvid", "vp8"): "NVIDIA CUDA VP8 Decoder(NVDEC)",
-    ("vp8_qsv", "vp8"): "Intel Quick Sync Video VP8 Decoder(QSV)",
-    ("vp9_cuvid", "vp9"): "NVIDIA CUDA VP9 Decoder(NVDEC)",
-    ("vp9_qsv", "vp9"): "Intel Quick Sync Video VP9 Decoder(QSV)",
-    ("dxva2", "h264"): "Microsoft DirectX Video Acceleration H264 Decoder(DXVA2)",
-    ("dxva2", "h265"): "Microsoft DirectX Video Acceleration H265 Decoder(DXVA2)",
-    ("dxva2", "av1"): "Microsoft DirectX Video Acceleration AV1 Decoder(DXVA2)",
-    ("dxva2", "mjpeg"): "Microsoft DirectX Video Acceleration MJPEG Decoder(DXVA2)",
-    ("dxva2", "mpeg1"): "Microsoft DirectX Video Acceleration MPEG-1 Decoder(DXVA2)",
-    ("dxva2", "mpeg2"): "Microsoft DirectX Video Acceleration MPEG-2 Decoder(DXVA2)",
-    ("dxva2", "mpeg4"): "Microsoft DirectX Video Acceleration MPEG-4 Decoder(DXVA2)",
-    ("dxva2", "vp8"): "Microsoft DirectX Video Acceleration VP8 Decoder(DXVA2)",
-    ("dxva2", "vp9"): "Microsoft DirectX Video Acceleration VP9 Decoder(DXVA2)",
-    ("d3d11va", "h264"): "Microsoft Direct3D 11 Video Acceleration H264 Decoder(D3D11VA)",
-    ("d3d11va", "h265"): "Microsoft Direct3D 11 Video Acceleration H265 Decoder(D3D11VA)",
-    ("d3d11va", "av1"): "Microsoft Direct3D 11 Video Acceleration AV1 Decoder(D3D11VA)",
-    ("d3d11va", "mjpeg"): "Microsoft Direct3D 11 Video Acceleration MJPEG Decoder(D3D11VA)",
-    ("d3d11va", "mpeg1"): "Microsoft Direct3D 11 Video Acceleration MPEG-1 Decoder(D3D11VA)",
-    ("d3d11va", "mpeg2"): "Microsoft Direct3D 11 Video Acceleration MPEG-2 Decoder(D3D11VA)",
-    ("d3d11va", "mpeg4"): "Microsoft Direct3D 11 Video Acceleration MPEG-4 Decoder(D3D11VA)",
-    ("d3d11va", "vp8"): "Microsoft Direct3D 11 Video Acceleration VP8 Decoder(D3D11VA)",
-    ("d3d11va", "vp9"): "Microsoft Direct3D 11 Video Acceleration VP9 Decoder(D3D11VA)",
-    ("d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Decoder(D3D12VA)",
-    ("d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Decoder(D3D12VA)",
-    ("d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Decoder(D3D12VA)",
-    ("d3d12va", "mjpeg"): "Microsoft Direct3D 12 Video Acceleration MJPEG Decoder(D3D12VA)",
-    ("d3d12va", "mpeg1"): "Microsoft Direct3D 12 Video Acceleration MPEG-1 Decoder(D3D12VA)",
-    ("d3d12va", "mpeg2"): "Microsoft Direct3D 12 Video Acceleration MPEG-2 Decoder(D3D12VA)",
-    ("d3d12va", "mpeg4"): "Microsoft Direct3D 12 Video Acceleration MPEG-4 Decoder(D3D12VA)",
-    ("d3d12va", "vp8"): "Microsoft Direct3D 12 Video Acceleration VP8 Decoder(D3D12VA)",
-    ("d3d12va", "vp9"): "Microsoft Direct3D 12 Video Acceleration VP9 Decoder(D3D12VA)",
-    ("vulkan", "h264"): "Vulkan Hardware H264 Decoder(Vulkan)",
-    ("vulkan", "h265"): "Vulkan Hardware H265 Decoder(Vulkan)",
-    ("vulkan", "av1"): "Vulkan Hardware AV1 Decoder(Vulkan)",
-    ("videotoolbox", "h264"): "Apple macOS Hardware H264 Decoder(VideoToolbox)",
-    ("videotoolbox", "h265"): "Apple macOS Hardware H265 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg2"): "Apple macOS Hardware MPEG-2 Decoder(VideoToolbox)",
-    ("videotoolbox", "mpeg4"): "Apple macOS Hardware MPEG-4 Decoder(VideoToolbox)",
-    ("videotoolbox", "prores"): "Apple macOS Hardware ProRes Decoder(VideoToolbox)",
-    ("videotoolbox", "vp9"): "Apple macOS Hardware VP9 Decoder(VideoToolbox)",
-}
-
-DECODERS = {
-    "h264": {"lib": "libx264", "hw_decoders": ["h264_cuvid", "h264_qsv", "dxva2", "d3d11va", "vulkan", "d3d12va", "videotoolbox"]},
-    "h265": {"lib": "libx265", "hw_decoders": ["hevc_cuvid", "hevc_qsv", "d3d11va", "d3d12va", "vulkan", "videotoolbox"]},
-    "av1": {"lib": "librav1e", "hw_decoders": ["av1_cuvid", "av1_qsv", "dxva2", "d3d11va", "d3d12va", "vulkan"]},
-    "mjpeg": {"lib": "mjpeg", "hw_decoders": ["mjpeg_cuvid", "mjpeg_qsv", "dxva2", "d3d11va", "d3d12va"]},
-    "mpeg1": {"lib": "mpeg1video", "hw_decoders": ["mpeg1_cuvid", "dxva2", "d3d11va", "d3d12va"]},
-    "mpeg2": {"lib": "mpeg2video", "hw_decoders": ["mpeg2_cuvid", "mpeg2_qsv", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "mpeg4": {"lib": "mpeg4", "hw_decoders": ["mpeg4_cuvid", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "vp8": {"lib": "libvpx", "hw_decoders": ["vp8_cuvid", "vp8_qsv", "dxva2", "d3d11va", "d3d12va"]},
-    "vp9": {"lib": "libvpx-vp9", "hw_decoders": ["vp9_cuvid", "vp9_qsv", "dxva2", "d3d11va", "d3d12va", "videotoolbox"]},
-    "prores": {"lib": "prores", "hw_decoders": ["videotoolbox"]},
-}
-
-# Encoder titles
-ENCODER_TITLES = {
-    ("h264_nvenc", "h264"): "NVIDIA Hardware H264 Encoder(NVEnc)",
-    ("hevc_nvenc", "h265"): "NVIDIA Hardware H265 Encoder(NVEnc)",
-    ("av1_nvenc", "av1"): "NVIDIA Hardware AV1 Encoder(NVEnc)",
-    ("h264_qsv", "h264"): "Intel Hardware H264 Encoder(QSV)",
-    ("hevc_qsv", "h265"): "Intel Hardware H265 Encoder(QSV)",
-    ("av1_qsv", "av1"): "Intel Hardware AV1 Encoder(QSV)",
-    ("mjpeg_qsv", "mjpeg"): "Intel Hardware MJPEG Encoder(QSV)",
-    ("mpeg2_qsv", "mpeg2"): "Intel Hardware MPEG-2 Encoder(QSV)",
-    ("vp9_qsv", "vp9"): "Intel Hardware VP9 Encoder(QSV)",
-    ("h264_amf", "h264"): "AMD Hardware H264 Encoder(AMF)",
-    ("hevc_amf", "h265"): "AMD Hardware H265 Encoder(AMF)",
-    ("av1_amf", "av1"): "AMD Hardware AV1 Encoder(AMF)",
-    ("h264_mf", "h264"): "Microsoft Hardware H264 Encoder(MediaFoundation)",
-    ("hevc_mf", "h265"): "Microsoft Hardware H265 Encoder(MediaFoundation)",
-    ("av1_mf", "av1"): "Microsoft Hardware AV1 Encoder(MediaFoundation)",
-    ("h264_d3d12va", "h264"): "Microsoft Direct3D 12 Video Acceleration H264 Encoder(D3D12VA)",
-    ("hevc_d3d12va", "h265"): "Microsoft Direct3D 12 Video Acceleration H265 Encoder(D3D12VA)",
-    ("av1_d3d12va", "av1"): "Microsoft Direct3D 12 Video Acceleration AV1 Encoder(D3D12VA)",
-    ("h264_vaapi", "h264"): "Video Acceleration H264 Encoder(VAAPI)",
-    ("hevc_vaapi", "h265"): "Video Acceleration H265 Encoder(VAAPI)",
-    ("av1_vaapi", "av1"): "Video Acceleration AV1 Encoder(VAAPI)",
-    ("mjpeg_vaapi", "mjpeg"): "Video Acceleration MJPEG Encoder(VAAPI)",
-    ("mpeg2_vaapi", "mpeg2"): "Video Acceleration MPEG-2 Encoder(VAAPI)",
-    ("vp8_vaapi", "vp8"): "Video Acceleration VP8 Encoder(VAAPI)",
-    ("vp9_vaapi", "vp9"): "Video Acceleration VP9 Encoder(VAAPI)",
-    ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder(Vulkan)",
-    ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
-    ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Encoder(Vulkan)",
-    ("h264_videotoolbox", "h264"): "Apple macOS Hardware H264 Encoder(VideoToolbox)",
-    ("hevc_videotoolbox", "h265"): "Apple macOS Hardware H265 Encoder(VideoToolbox)",
-    ("prores_videotoolbox", "prores"): "Apple macOS Hardware ProRes Encoder(VideoToolbox)",
-}
-
-ENCODERS = {
-    "h264": {"lib": "libx264", "hw_encoders": ["h264_nvenc", "h264_qsv", "h264_amf", "h264_mf", "h264_d3d12va", "h264_vaapi", "h264_vulkan", "h264_videotoolbox"]},
-    "h265": {"lib": "libx265", "hw_encoders": ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_mf", "hevc_d3d12va", "hevc_vaapi", "hevc_vulkan", "hevc_videotoolbox"]},
-    "av1": {"lib": "librav1e", "hw_encoders": ["av1_nvenc", "av1_qsv", "av1_amf", "av1_mf", "av1_d3d12va", "av1_vaapi", "av1_vulkan"]},
-    "mjpeg": {"lib": "mjpeg", "hw_encoders": ["mjpeg_qsv", "mjpeg_vaapi"]},
-    "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
-    "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
-    "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
-    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox"]},
-}
-
-# Combine both decoder and encoder data
-ALL_CODECS = {
-    **DECODERS,
-    **{k: v for k, v in ENCODERS.items() if k not in DECODERS}
-}
-
-# ─── Theme Constants (Fluent + macOS inspired) ─────────────────────────────
-BG_ROOT       = "#1b1d23"     # deepest background
-BG_SIDEBAR    = "#20222a"     # sidebar
-BG_SURFACE    = "#272a33"     # card / surface
-BG_ELEVATED   = "#2f3240"     # elevated surface
-BG_INPUT      = "#353845"     # input fields
-BG_HOVER      = "#3a3e50"     # hover state
-BORDER        = "#3a3d48"     # subtle border
-BORDER_LIGHT  = "#4a4e5c"     # lighter border
-TEXT_PRIMARY   = "#ecedf2"    # primary text
-TEXT_SECONDARY = "#9197a8"    # secondary text
-TEXT_DIM       = "#626878"    # dim text
-ACCENT        = "#6b8aff"     # accent blue (softer)
-ACCENT_HOVER  = "#839dff"     # accent hover
-ACCENT_SUBTLE = "#2a3158"     # accent subtle bg
-GREEN         = "#4ade80"     # success green
-GREEN_BG      = "#14291a"     # green background
-GREEN_BORDER  = "#22543d"     # green border
-RED           = "#f87171"     # error red
-RED_BG        = "#2d1518"     # red background
-RED_BORDER    = "#7f1d1d"     # red border
-ORANGE        = "#fbbf24"     # warning orange
-ORANGE_BG     = "#2d2510"     # orange background
-ORANGE_BORDER = "#785815"     # orange border
-PURPLE        = "#c084fc"     # purple accent
-CYAN          = "#67e8f9"     # cyan accent
-PROGRESS_BG   = "#2a2d38"     # progress bar background
-PROGRESS_FG   = "#6b8aff"     # progress bar fill
-SEPARATOR     = "#2a2d38"     # separator
-NAV_ACTIVE    = "#2f3240"     # active nav bg
-NAV_HOVER     = "#2a2d38"     # nav hover bg
-BADGE_BG      = "#6b8aff22"   # badge background
-
-FAMILY = "Segoe UI"
-FAMILY_MONO = "Cascadia Code"
-if sys.platform != "win32":
-    FAMILY = "Helvetica Neue"
-    FAMILY_MONO = "Menlo"
+from .theme import (
+    BG_ROOT, BG_SIDEBAR, BG_SURFACE, BG_ELEVATED, BG_INPUT, BG_HOVER,
+    BORDER, BORDER_LIGHT, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_DIM,
+    ACCENT, ACCENT_HOVER, ACCENT_SUBTLE, GREEN, GREEN_BG, GREEN_BORDER,
+    RED, RED_BG, RED_BORDER, ORANGE, ORANGE_BG, ORANGE_BORDER,
+    PURPLE, CYAN, PROGRESS_BG, PROGRESS_FG, SEPARATOR, NAV_ACTIVE, NAV_HOVER,
+    BADGE_BG, FAMILY, FAMILY_MONO,
+)
+from .color_table import ColorTable
+from .bitdepth_chroma_detect import run_bitdepth_chroma_tests
 
 # Nav items definition
 NAV_ITEMS = [
@@ -215,36 +54,12 @@ NAV_ITEMS = [
 
 # ─── FFmpeg / Test Helpers ──────────────────────────────────────────────────
 
-def _run_ffmpeg_command(command, verbose):
-    """Executes an FFmpeg command and returns True on success, False on failure."""
-    creation_flags = 0
-    if sys.platform == "win32":
-        creation_flags = subprocess.CREATE_NO_WINDOW
-    try:
-        result = subprocess.run(
-            command,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=creation_flags,
-            text=True
-        )
-        return (result.returncode == 0, result.stdout, result.stderr)
-    except subprocess.CalledProcessError as e:
-        return (False, e.stdout, e.stderr)
-    except FileNotFoundError:
-        return (False, "", "FFmpeg executable not found")
-
-
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
     import shlex
 
     codec, encoder, res_name, res_size, test_dir, verbose = test_data
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
 
     if "vulkan" in encoder:
@@ -280,7 +95,7 @@ def _run_encoder_test_single(test_data):
     if verbose:
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     if not success and os.path.exists(output_file):
@@ -290,29 +105,7 @@ def _run_encoder_test_single(test_data):
             pass
 
     if verbose:
-        info_str = f"codec: {codec}, encoder: {encoder}, resolution: {res_size}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Encoder Detect Info]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Encoder Detect Info", codec, f"encoder: {encoder}", res_size, status, stdout, stderr, command)
 
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     command_str = " ".join(shlex.quote(arg) for arg in command)
@@ -326,10 +119,7 @@ def _run_decoder_test_single(test_data):
     import shlex
 
     codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
     found_file = False
@@ -349,7 +139,7 @@ def _run_decoder_test_single(test_data):
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
         ]
-        if not _run_ffmpeg_command(command, verbose)[0]:
+        if not run_ffmpeg_command(command, verbose)[0]:
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, res_name, "skipped", "Failed to create test file"
 
@@ -384,33 +174,11 @@ def _run_decoder_test_single(test_data):
     if verbose:
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     if verbose:
-        info_str = f"codec: {codec}, decoder: {hw_decoder}, resolution: {res_size}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Decoder Detect Info]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Decoder Detect Info", codec, f"decoder: {hw_decoder}", res_size, status, stdout, stderr, command)
 
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     command_str = " ".join(shlex.quote(arg) for arg in command)
@@ -424,33 +192,10 @@ def _run_encoder_bitdepth_test(test_data):
     import shlex
 
     codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
 
-    if bit_depth == 8:
-        if chroma == "4:2:0":
-            out_pix_fmt = "yuv420p"
-        elif chroma == "4:2:2":
-            out_pix_fmt = "yuv422p"
-        else:
-            out_pix_fmt = "yuv444p"
-    elif bit_depth == 10:
-        if chroma == "4:2:0":
-            out_pix_fmt = "p010le"
-        elif chroma == "4:2:2":
-            out_pix_fmt = "yuv422p10le"
-        else:
-            out_pix_fmt = "yuv444p10le"
-    else:
-        if chroma == "4:2:0":
-            out_pix_fmt = "yuv420p12le"
-        elif chroma == "4:2:2":
-            out_pix_fmt = "yuv422p12le"
-        else:
-            out_pix_fmt = "yuv444p12le"
+    out_pix_fmt = get_out_pix_fmt(bit_depth, chroma)
 
     if "vulkan" in encoder:
         command = [
@@ -485,7 +230,7 @@ def _run_encoder_bitdepth_test(test_data):
     if verbose:
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     if not success and os.path.exists(output_file):
@@ -495,29 +240,7 @@ def _run_encoder_bitdepth_test(test_data):
             pass
 
     if verbose:
-        info_str = f"codec: {codec}, encoder: {encoder}, format: {pix_fmt}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Bit-depth/Chroma Encoder Test]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Bit-depth/Chroma Encoder Test", codec, f"encoder: {encoder}", pix_fmt, status, stdout, stderr, command)
 
     title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     key = f"{bit_depth}-bit {chroma}"
@@ -532,10 +255,7 @@ def _run_decoder_bitdepth_test(test_data):
     import shlex
 
     codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
-    if codec == "prores":
-        file_ext = ".mov"
-    else:
-        file_ext = ".webm" if codec in ["vp8", "vp9"] else ".mp4"
+    file_ext = get_file_extension(codec)
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
 
     if not os.path.exists(test_file) or os.path.getsize(test_file) == 0:
@@ -546,7 +266,7 @@ def _run_decoder_bitdepth_test(test_data):
             "-frames:v", "1", "-c:v", cpu_lib, "-pix_fmt", pix_fmt,
             test_file,
         ]
-        if not _run_ffmpeg_command(command, verbose)[0]:
+        if not run_ffmpeg_command(command, verbose)[0]:
             title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             key = f"{bit_depth}-bit {chroma}"
             return title, key, "skipped", "Failed to create test file"
@@ -582,33 +302,11 @@ def _run_decoder_bitdepth_test(test_data):
     if verbose:
         command[2] = "error"
 
-    success, stdout, stderr = _run_ffmpeg_command(command, verbose)
+    success, stdout, stderr = run_ffmpeg_command(command, verbose)
     status = "succeeded" if success else "failed"
 
     if verbose:
-        info_str = f"codec: {codec}, decoder: {hw_decoder}, format: {pix_fmt}, status: {status}"
-        command_str = " ".join(shlex.quote(arg) for arg in command)
-        if stdout.strip() and stderr.strip():
-            command_log = f"{stdout.strip()}\n{stderr.strip()}"
-        elif stdout.strip():
-            command_log = stdout.strip()
-        elif stderr.strip():
-            command_log = stderr.strip()
-        else:
-            command_log = "(none)"
-        log_message = f"""
-==================================================
-[Bit-depth/Chroma Decoder Test]
-{info_str}
-
-[FFmpeg Command]
-{command_str}
-
-[Command Log]
-{command_log}
-
-""".strip()
-        print(log_message)
+        format_verbose_log("Bit-depth/Chroma Decoder Test", codec, f"decoder: {hw_decoder}", pix_fmt, status, stdout, stderr, command)
 
     title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     key = f"{bit_depth}-bit {chroma}"
@@ -1274,7 +972,8 @@ class HwCodecGUI:
             try:
                 result = subprocess.run(
                     ["ffmpeg", "-version"], capture_output=True, text=True,
-                    encoding='utf-8', errors='ignore', creationflags=creation_flags)
+                    encoding='utf-8', errors='ignore', creationflags=creation_flags,
+                    timeout=10)
                 version_line = result.stdout.split('\n')[0] if result.stdout else "Unknown"
             except Exception:
                 version_line = "Unable to retrieve"
@@ -1322,7 +1021,8 @@ class HwCodecGUI:
                 result = subprocess.run(
                     ["ffmpeg", "-hide_banner", "-hwaccels"],
                     capture_output=True, text=True, encoding='utf-8',
-                    errors='ignore', creationflags=creation_flags)
+                    errors='ignore', creationflags=creation_flags,
+                    timeout=10)
                 hwaccels = [l.strip() for l in result.stdout.split('\n')
                             if l.strip() and not l.strip().startswith('Hardware acceleration')]
             except Exception:
@@ -1909,20 +1609,12 @@ class HwCodecGUI:
         self.root.after(0, _inner)
 
     def run_tests_thread(self):
-        from .utils import get_temp_path
-        temp_dir = os.path.join(get_temp_path(), "HwCodecDetect_GUI")
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-        os.makedirs(temp_dir, exist_ok=True)
+        temp_dir = prepare_temp_dir("GUI")
 
         self._set_status("Checking FFmpeg codec support...", ACCENT)
         print("\nChecking FFmpeg codec support...")
         unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
-        if unsupported_encoders or unsupported_decoders:
-            print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
-            print("These codecs will be marked as unavailable '-' in the results.\n")
-        else:
-            print("All defined hardware codecs are supported.\n")
+        print_codec_support_report(unsupported_encoders, unsupported_decoders)
 
         encoder_results = defaultdict(dict)
         decoder_results = defaultdict(dict)
