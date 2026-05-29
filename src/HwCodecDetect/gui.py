@@ -897,7 +897,7 @@ class _StatusDot(tk.Canvas):
 def _find_logo_path(ext="gif"):
     """Locate imgs/logo.<ext> relative to the project root."""
     if getattr(sys, 'frozen', False):
-        base = os.path.dirname(sys.executable)
+        base = sys._MEIPASS
     else:
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     return os.path.join(base, "imgs", f"logo.{ext}")

@@ -193,6 +193,8 @@ jobs:
           $ADD_PARAMS \
           $ICON_PARAMS \
           --add-data "VERSION${SEP}." \
+          --add-data "imgs/logo.gif${SEP}imgs" \
+          --add-data "imgs/logo.ico${SEP}imgs" \
           --paths ".$SEP" \
           --distpath dist \
           --workpath build \
@@ -219,6 +221,8 @@ jobs:
           
           pyinstaller --clean --onefile --name ${{ env.APP_NAME_INTERNAL }} \
             --add-data "VERSION:." \
+            --add-data "imgs/logo.gif:imgs" \
+            --add-data "imgs/logo.ico:imgs" \
             --paths . \
             --distpath dist \
             --workpath build \
