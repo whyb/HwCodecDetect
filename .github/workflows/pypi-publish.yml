@@ -33,6 +33,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel setuptools
           pip install build
+      - name: Copy logo resources for packaging
+        run: |
+          mkdir -p src/HwCodecDetect/resources
+          cp imgs/logo.gif imgs/logo.ico src/HwCodecDetect/resources/
       - name: Build package
         run: python -m build
       - name: Publish package

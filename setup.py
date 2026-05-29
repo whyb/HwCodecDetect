@@ -39,6 +39,9 @@ setup(
     install_requires=load_requirements(),
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    package_data={
+        "HwCodecDetect": ["resources/*.gif", "resources/*.ico"],
+    },
     entry_points={
         "console_scripts": [
             "hwcodecdetect=HwCodecDetect.run_tests:main"

@@ -895,12 +895,18 @@ class _StatusDot(tk.Canvas):
 # ─── Logo Helper ──────────────────────────────────────────────────────────────
 
 def _find_logo_path(ext="gif"):
-    """Locate imgs/logo.<ext> relative to the project root."""
+    """Locate imgs/logo.<ext> from package resources or project root."""
     if getattr(sys, 'frozen', False):
         base = sys._MEIPASS
+        return os.path.join(base, "imgs", f"logo.{ext}")
     else:
+        # Try package resources first (pip install)
+        pkg_res = os.path.join(os.path.dirname(__file__), "resources", f"logo.{ext}")
+        if os.path.exists(pkg_res):
+            return pkg_res
+        # Fallback to project root (development)
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    return os.path.join(base, "imgs", f"logo.{ext}")
+        return os.path.join(base, "imgs", f"logo.{ext}")
 
 
 def _load_logo_image(size=28):
