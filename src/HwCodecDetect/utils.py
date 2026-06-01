@@ -8,6 +8,41 @@ import shlex
 import subprocess
 from pathlib import Path
 
+# ─── Colorful CLI theme (ANSI equivalents of the GUI theme) ─────────────────
+# These are only used when --colorful is enabled.
+
+class _ColorfulTheme:
+    """ANSI color palette inspired by the GUI Fluent Design dark theme."""
+    # Semantic status (matching gui.py's GREEN/RED/TEXT_DIM)
+    SUCCESS  = "\033[38;2;74;222;128m"   # #4ade80
+    ERROR    = "\033[38;2;248;113;113m"  # #f87171
+    WARNING  = "\033[38;2;251;191;36m"   # #fbbf24
+    SKIPPED  = "\033[38;2;98;104;120m"   # #626878
+    # Accent colors
+    ACCENT   = "\033[38;2;107;138;255m"  # #6b8aff
+    CYAN     = "\033[38;2;103;232;249m"  # #67e8f9
+    PURPLE   = "\033[38;2;192;132;252m"  # #c084fc
+    # Text
+    TEXT_PRIMARY   = "\033[38;2;236;237;242m"  # #ecedf2
+    TEXT_SECONDARY = "\033[38;2;145;151;168m"  # #9197a8
+    # Table
+    BORDER  = "\033[38;2;58;61;72m"      # #3a3d48
+    DIM     = "\033[38;2;98;104;120m"    # #626878
+    # Box-drawing characters for tables
+    TL = "┌"; TR = "┐"; BL = "└"; BR = "┘"
+    H  = "─"; V  = "│"
+    LT = "├"; RT = "┤"; TT = "┬"; BT = "┴"; XX = "┼"
+    # Symbols (matching gui.py's ● / — style)
+    SYM_SUCCESS = " ● "
+    SYM_ERROR   = " ● "
+    SYM_SKIP    = " — "
+    RESET  = "\033[0m"
+    BOLD   = "\033[1m"
+    DIM_STYLE = "\033[2m"
+
+
+COLORFUL = _ColorfulTheme()
+
 def get_temp_path():
     app_id = "HwCodecDetect"
     
@@ -142,12 +177,13 @@ def get_ffmpeg_supported_codecs():
     return supported_encoders, supported_decoders
 
 
-def check_codec_support(encoders_dict, decoders_dict):
+def check_codec_support(encoders_dict, decoders_dict, colorful=False):
     """Check which hardware codecs are supported by current ffmpeg version.
 
     Args:
         encoders_dict: Dictionary of encoder definitions (like ENCODERS)
         decoders_dict: Dictionary of decoder definitions (like DECODERS)
+        colorful: If True, use colorful theme for warning output
 
     Returns:
         tuple: (unsupported_encoders, unsupported_decoders) - two sets containing
@@ -165,14 +201,20 @@ def check_codec_support(encoders_dict, decoders_dict):
         for encoder in info.get('hw_encoders', []):
             if encoder not in supported_encoders:
                 unsupported_encoders.add(encoder)
-                print(f"{Fore.YELLOW}Warning: Encoder '{encoder}' is not supported by current FFmpeg version{Style.RESET_ALL}")
+                if colorful:
+                    print(f"{COLORFUL.WARNING}⚠ Encoder '{encoder}' is not supported by current FFmpeg version{COLORFUL.RESET}")
+                else:
+                    print(f"{Fore.YELLOW}Warning: Encoder '{encoder}' is not supported by current FFmpeg version{Style.RESET_ALL}")
 
     # Check decoders
     for codec, info in decoders_dict.items():
         for decoder in info.get('hw_decoders', []):
             if decoder not in supported_decoders:
                 unsupported_decoders.add(decoder)
-                print(f"{Fore.YELLOW}Warning: Decoder '{decoder}' is not supported by current FFmpeg version{Style.RESET_ALL}")
+                if colorful:
+                    print(f"{COLORFUL.WARNING}⚠ Decoder '{decoder}' is not supported by current FFmpeg version{COLORFUL.RESET}")
+                else:
+                    print(f"{Fore.YELLOW}Warning: Decoder '{decoder}' is not supported by current FFmpeg version{Style.RESET_ALL}")
 
     return unsupported_encoders, unsupported_decoders
 
@@ -232,7 +274,7 @@ def get_file_extension(codec):
     return ".mp4"
 
 
-def format_verbose_log(test_label, codec, name, key, status, stdout, stderr, command):
+def format_verbose_log(test_label, codec, name, key, status, stdout, stderr, command, colorful=False):
     """Format and print a verbose FFmpeg test log block."""
     info_str = f"codec: {codec}, {name}, resolution/format: {key}, status: {status}"
     command_str = " ".join(shlex.quote(arg) for arg in command)
@@ -244,7 +286,26 @@ def format_verbose_log(test_label, codec, name, key, status, stdout, stderr, com
         command_log = stderr.strip()
     else:
         command_log = "(none)"
-    log_message = f"""
+
+    if colorful:
+        C = COLORFUL
+        status_color = C.SUCCESS if status == "succeeded" else C.ERROR if status == "failed" else C.DIM
+        sep = C.BORDER + ("─" * 56) + C.RESET
+        log_message = f"""
+{sep}
+{C.ACCENT}{C.BOLD}[{test_label}]{C.RESET}
+{C.TEXT_PRIMARY}{info_str}{C.RESET}
+
+{C.CYAN}[FFmpeg Command]{C.RESET}
+{C.DIM_STYLE}{command_str}{C.RESET}
+
+{C.CYAN}[Command Log]{C.RESET}
+{command_log}
+
+""".strip()
+        print(log_message)
+    else:
+        log_message = f"""
 ==================================================
 [{test_label}]
 {info_str}
@@ -256,7 +317,7 @@ def format_verbose_log(test_label, codec, name, key, status, stdout, stderr, com
 {command_log}
 
 """.strip()
-    print(log_message)
+        print(log_message)
 
 
 # ---------------------------------------------------------------------------
@@ -341,10 +402,18 @@ def prepare_temp_dir(suffix):
 # Codec support reporting
 # ---------------------------------------------------------------------------
 
-def print_codec_support_report(unsupported_encoders, unsupported_decoders):
+def print_codec_support_report(unsupported_encoders, unsupported_decoders, colorful=False):
     """Print a summary of unsupported codecs."""
-    if unsupported_encoders or unsupported_decoders:
-        print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
-        print("These codecs will be marked as unavailable '-' in the results.\n")
+    if colorful:
+        C = COLORFUL
+        if unsupported_encoders or unsupported_decoders:
+            print(f"\n{C.WARNING}⚠ Found {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s){C.RESET}")
+            print(f"{C.DIM}  These codecs will be marked as unavailable in the results.{C.RESET}\n")
+        else:
+            print(f"{C.SUCCESS}✔ All defined hardware codecs are supported.{C.RESET}\n")
     else:
-        print("All defined hardware codecs are supported.\n")
+        if unsupported_encoders or unsupported_decoders:
+            print(f"\nFound {len(unsupported_encoders)} unsupported encoder(s) and {len(unsupported_decoders)} unsupported decoder(s).")
+            print("These codecs will be marked as unavailable '-' in the results.\n")
+        else:
+            print("All defined hardware codecs are supported.\n")

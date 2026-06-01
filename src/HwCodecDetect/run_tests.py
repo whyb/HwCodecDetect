@@ -125,7 +125,7 @@ if available_memory > 0:
 
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
-    codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders = test_data
+    codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful = test_data
 
     # Skip unsupported encoders
     if encoder in unsupported_encoders:
@@ -194,33 +194,40 @@ def _run_encoder_test_single(test_data):
             pass
 
     if verbose:
-        format_verbose_log("Encoder Detect Info", codec, f"encoder: {encoder}", res_size, status, stdout, stderr, command)
+        format_verbose_log("Encoder Detect Info", codec, f"encoder: {encoder}", res_size, status, stdout, stderr, command, colorful)
 
     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
     return title, res_name, status
 
 
-def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None):
+def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None, colorful=False):
     """Runs hardware encoder tests using a thread pool."""
     results = defaultdict(dict)
 
     if unsupported_encoders is None:
         unsupported_encoders = set()
 
-    print("\n--- Running Encoder Tests ---")
+    if colorful:
+        from .utils import COLORFUL as C
+        print(f"\n{C.ACCENT}{C.BOLD}━━━ Running Encoder Tests ━━━{C.RESET}")
+    else:
+        print("\n--- Running Encoder Tests ---")
 
     tasks = []
     for codec, info in ENCODERS.items():
         for encoder in info['hw_encoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders))
+                tasks.append((codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful))
 
     stty_cfg = get_stty_cfg()
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_run_encoder_test_single, task) for task in tasks]
 
-            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running encoder tests"):
+            tqdm_kwargs = {"desc": "Running encoder tests"}
+            if colorful:
+                tqdm_kwargs["colour"] = "green"
+            for future in tqdm(as_completed(futures), total=len(tasks), **tqdm_kwargs):
                 title, res_name, status = future.result()
                 results[title][res_name] = status
     finally:
@@ -230,7 +237,7 @@ def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None
 
 def _run_decoder_test_single(test_data):
     """Runs a single decoder test and returns the result."""
-    codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders = test_data
+    codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful = test_data
 
     # Skip unsupported decoders
     if hw_decoder in unsupported_decoders:
@@ -300,33 +307,40 @@ def _run_decoder_test_single(test_data):
     status = "succeeded" if success else "failed"
 
     if verbose:
-        format_verbose_log("Decoder Detect Info", codec, f"decoder: {hw_decoder}", res_size, status, stdout, stderr, command)
+        format_verbose_log("Decoder Detect Info", codec, f"decoder: {hw_decoder}", res_size, status, stdout, stderr, command, colorful)
 
     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
     return title, res_name, status
 
 
-def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None):
+def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None, colorful=False):
     """Runs hardware decoder tests using a thread pool."""
     results = defaultdict(dict)
 
     if unsupported_decoders is None:
         unsupported_decoders = set()
 
-    print("\n--- Running Decoder Tests ---")
+    if colorful:
+        from .utils import COLORFUL as C
+        print(f"\n{C.ACCENT}{C.BOLD}━━━ Running Decoder Tests ━━━{C.RESET}")
+    else:
+        print("\n--- Running Decoder Tests ---")
 
     tasks = []
     for codec, info in DECODERS.items():
         for hw_decoder in info['hw_decoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders))
+                tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful))
 
     stty_cfg = get_stty_cfg()
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_run_decoder_test_single, task) for task in tasks]
 
-            for future in tqdm(as_completed(futures), total=len(tasks), desc="Running decoder tests"):
+            tqdm_kwargs = {"desc": "Running decoder tests"}
+            if colorful:
+                tqdm_kwargs["colour"] = "cyan"
+            for future in tqdm(as_completed(futures), total=len(tasks), **tqdm_kwargs):
                 title, res_name, status = future.result()
                 results[title][res_name] = status
     finally:
@@ -334,8 +348,11 @@ def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None
 
     return results
 
-def _print_summary_table(results):
+def _print_summary_table(results, colorful=False):
     """Prints a formatted summary table of all test results."""
+    if colorful:
+        from .utils import COLORFUL as C
+
     GREEN_CHECK = Fore.GREEN + "✓" + Style.RESET_ALL
     RED_X = Fore.RED + "×" + Style.RESET_ALL
     GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
@@ -348,96 +365,169 @@ def _print_summary_table(results):
     res_width = max(len(res) for res in resolutions)
     row_header_width = max([get_display_width(t) for t in results.keys()] + [20, get_display_width("Decoder"), get_display_width("Encoder")])
 
-    if decoder_titles:
-        print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
-        header_text = "Decoder"
-        padding_left = (row_header_width - get_display_width(header_text)) // 2
-        padding_right = row_header_width - get_display_width(header_text) - padding_left
-        header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
-        line_row = f"|-{'-' * row_header_width}-|"
+    def _print_table(titles, header_text):
+        if not titles:
+            return
+        if colorful:
+            _print_colorful_table(results, titles, header_text, resolutions, res_width, row_header_width, C)
+        else:
+            _print_plain_table(results, titles, header_text, resolutions, res_width, row_header_width)
+
+    _print_table(decoder_titles, "Decoder")
+    _print_table(encoder_titles, "Encoder")
+
+
+def _print_plain_table(results, titles, header_text, resolutions, res_width, row_header_width):
+    """Prints the original plain ASCII table."""
+    GREEN_CHECK = Fore.GREEN + "✓" + Style.RESET_ALL
+    RED_X = Fore.RED + "×" + Style.RESET_ALL
+    GRAY_DASH = Fore.LIGHTBLACK_EX + "—" + Style.RESET_ALL
+
+    print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
+    padding_left = (row_header_width - get_display_width(header_text)) // 2
+    padding_right = row_header_width - get_display_width(header_text) - padding_left
+    header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
+    line_row = f"|-{'-' * row_header_width}-|"
+    for res in resolutions:
+        header_row += f" {res.center(res_width)} |"
+        line_row += f"-{'-' * res_width}-|"
+    print(header_row)
+    print(line_row)
+
+    for title in titles:
+        padding_needed = row_header_width - get_display_width(title)
+        row_string = f"| {title}{' ' * padding_needed} |"
         for res in resolutions:
-            header_row += f" {res.center(res_width)} |"
-            line_row += f"-{'-' * res_width}-|"
-        print(header_row)
-        print(line_row)
+            status = results.get(title, {}).get(res, "skipped")
+            symbol = GREEN_CHECK if status == "succeeded" else RED_X if status == "failed" else GRAY_DASH
+            symbol_width = get_display_width(symbol)
+            padding_left = (res_width - symbol_width) // 2
+            padding_right = res_width - symbol_width - padding_left
+            row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
+        print(row_string)
+    print("=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
 
-        for title in decoder_titles:
-            padding_needed = row_header_width - get_display_width(title)
-            row_string = f"| {title}{' ' * padding_needed} |"
-            for res in resolutions:
-                status = results.get(title, {}).get(res, "skipped")
-                symbol = GREEN_CHECK if status == "succeeded" else RED_X if status == "failed" else GRAY_DASH
-                symbol_width = get_display_width(symbol)
-                padding_left = (res_width - symbol_width) // 2
-                padding_right = res_width - symbol_width - padding_left
-                row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
-            print(row_string)
-        print("=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
 
-    if encoder_titles:
-        print("\n" + "=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
-        header_text = "Encoder"
-        padding_left = (row_header_width - get_display_width(header_text)) // 2
-        padding_right = row_header_width - get_display_width(header_text) - padding_left
-        header_row = f"| {' ' * padding_left}{header_text}{' ' * padding_right} |"
-        line_row = f"|-{'-' * row_header_width}-|"
+def _print_colorful_table(results, titles, header_text, resolutions, res_width, row_header_width, C):
+    """Prints a colorful box-drawing table with GUI-like status colors."""
+    # Status symbols (no emoji, GUI-like colored labels)
+    def _status_cell(status):
+        if status == "succeeded":
+            return C.SUCCESS + C.BOLD + C.SYM_SUCCESS + C.RESET
+        elif status == "failed":
+            return C.ERROR + C.BOLD + C.SYM_ERROR + C.RESET
+        else:
+            return C.DIM + C.SYM_SKIP + C.RESET
+
+    total_width = row_header_width + 4 + (res_width + 3) * len(resolutions)
+
+    # Top border: ┌──────┬──────┐
+    top = C.BORDER + C.TL + C.H * (row_header_width + 2)
+    for res in resolutions:
+        top += C.TT + C.H * (res_width + 2)
+    top += C.TR + C.RESET
+    print("\n" + top)
+
+    # Header row
+    padding_left = (row_header_width - get_display_width(header_text)) // 2
+    padding_right = row_header_width - get_display_width(header_text) - padding_left
+    header_row = f"{C.BORDER}{C.V}{C.RESET} {C.ACCENT}{C.BOLD}{' ' * padding_left}{header_text}{' ' * padding_right}{C.RESET} "
+    for res in resolutions:
+        header_row += f"{C.BORDER}{C.V}{C.RESET} {C.TEXT_SECONDARY}{res.center(res_width)}{C.RESET} "
+    header_row += f"{C.BORDER}{C.V}{C.RESET}"
+    print(header_row)
+
+    # Separator: ├──────┼──────┤
+    sep = C.BORDER + C.LT + C.H * (row_header_width + 2)
+    for i, res in enumerate(resolutions):
+        sep += C.XX + C.H * (res_width + 2)
+    sep += C.RT + C.RESET
+    print(sep)
+
+    # Data rows
+    for title in titles:
+        padding_needed = row_header_width - get_display_width(title)
+        row_string = f"{C.BORDER}{C.V}{C.RESET} {C.TEXT_PRIMARY}{title}{' ' * padding_needed} "
         for res in resolutions:
-            header_row += f" {res.center(res_width)} |"
-            line_row += f"-{'-' * res_width}-|"
-        print(header_row)
-        print(line_row)
+            status = results.get(title, {}).get(res, "skipped")
+            cell = _status_cell(status)
+            cell_width = get_display_width(cell)
+            pad_l = (res_width - cell_width) // 2
+            pad_r = res_width - cell_width - pad_l
+            row_string += f"{C.BORDER}{C.V}{C.RESET} {' ' * pad_l}{cell}{' ' * pad_r} "
+        row_string += f"{C.BORDER}{C.V}{C.RESET}"
+        print(row_string)
 
-        for title in encoder_titles:
-            padding_needed = row_header_width - get_display_width(title)
-            row_string = f"| {title}{' ' * padding_needed} |"
-            for res in resolutions:
-                status = results.get(title, {}).get(res, "skipped")
-                symbol = GREEN_CHECK if status == "succeeded" else RED_X if status == "failed" else GRAY_DASH
-                symbol_width = get_display_width(symbol)
-                padding_left = (res_width - symbol_width) // 2
-                padding_right = res_width - symbol_width - padding_left
-                row_string += f" {' ' * padding_left}{symbol}{' ' * padding_right} |"
-            print(row_string)
-        print("=" * (row_header_width + 4 + (res_width + 3) * len(resolutions)))
+    # Bottom border: └──────┴──────┘
+    bot = C.BORDER + C.BL + C.H * (row_header_width + 2)
+    for res in resolutions:
+        bot += C.BT + C.H * (res_width + 2)
+    bot += C.BR + C.RESET
+    print(bot)
+
+    # Legend
+    print(f"  {C.SUCCESS}{C.BOLD} ● {C.RESET} Supported    {C.ERROR}{C.BOLD} ● {C.RESET} Not supported    {C.DIM} — {C.RESET} Skipped / Unavailable")
 
 
 def run_all_tests(args):
     """Main function to run the entire test suite."""
-    print("Starting hardware codec detection test suite...")
+    colorful = getattr(args, 'colorful', False)
+
+    if colorful:
+        from .utils import COLORFUL as C
+        print(f"\n{C.ACCENT}{C.BOLD}╔══════════════════════════════════════════════════╗{C.RESET}")
+        print(f"{C.ACCENT}{C.BOLD}║   HwCodecDetect — Hardware Codec Detection       ║{C.RESET}")
+        print(f"{C.ACCENT}{C.BOLD}╚══════════════════════════════════════════════════╝{C.RESET}")
+    else:
+        print("Starting hardware codec detection test suite...")
 
     if install_ffmpeg_if_needed() != 0:
         print("Error: FFmpeg dependency not met. Please check installation.", file=sys.stderr)
         return -1
 
     # Check codec support before running tests
-    print("\nChecking FFmpeg codec support...")
-    unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
-    print_codec_support_report(unsupported_encoders, unsupported_decoders)
+    if colorful:
+        print(f"\n{C.CYAN}{C.BOLD}▶ Checking FFmpeg codec support...{C.RESET}")
+    else:
+        print("\nChecking FFmpeg codec support...")
+    unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS, colorful)
+    print_codec_support_report(unsupported_encoders, unsupported_decoders, colorful)
 
     temp_dir = prepare_temp_dir("cli")
 
-    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose, unsupported_encoders)
-    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose, unsupported_decoders)
+    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose, unsupported_encoders, colorful)
+    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose, unsupported_decoders, colorful)
 
     all_results = {}
     all_results.update(encoder_results)
     all_results.update(decoder_results)
 
-    _print_summary_table(all_results)
+    _print_summary_table(all_results, colorful)
 
     # Run bit-depth and chroma tests if enabled
     if getattr(args, 'bitdepth_chroma', True):
-        print("\n" + "=" * 60)
-        print("Starting Bit-depth and Chroma Subsampling Detection...")
-        print("=" * 60)
+        if colorful:
+            print(f"\n{C.BORDER}{'━' * 60}{C.RESET}")
+            print(f"{C.PURPLE}{C.BOLD}▶ Bit-depth and Chroma Subsampling Detection{C.RESET}")
+            print(f"{C.BORDER}{'━' * 60}{C.RESET}")
+        else:
+            print("\n" + "=" * 60)
+            print("Starting Bit-depth and Chroma Subsampling Detection...")
+            print("=" * 60)
         bd_encoder_results, bd_decoder_results = run_bitdepth_chroma_tests(
-            args.encoder_count, args.decoder_count, args.verbose
+            args.encoder_count, args.decoder_count, args.verbose, colorful
         )
-        print_bitdepth_chroma_results(bd_encoder_results, bd_decoder_results)
+        print_bitdepth_chroma_results(bd_encoder_results, bd_decoder_results, colorful)
 
-    print("\nCleaning up temporary files...")
+    if colorful:
+        print(f"\n{C.DIM}▶ Cleaning up temporary files...{C.RESET}")
+    else:
+        print("\nCleaning up temporary files...")
     shutil.rmtree(temp_dir)
-    print("Cleanup complete.")
+    if colorful:
+        print(f"{C.SUCCESS}✔ Cleanup complete.{C.RESET}")
+    else:
+        print("Cleanup complete.")
 
     return
 
@@ -522,6 +612,13 @@ def main():
         action='store_true',
         default=False,
         help='Launch the graphical user interface (default: CLI mode)'
+    )
+
+    parser.add_argument(
+        '--colorful',
+        action='store_true',
+        default=False,
+        help='Enable colorful ASCII art style output for CLI mode (ignored when --ui is enabled)'
     )
 
     args = parser.parse_args()
