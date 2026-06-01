@@ -2,17 +2,19 @@
 FFmpeg installation checker and auto-installer.
 
 Supports:
-  - Windows (winget, chocolatey, scoop, manual download for x86_64/ARM64)
-  - Linux (apt, dnf, yum, pacman, zypper, apk, xbps, nix-env, static binary fallback)
-  - macOS (Homebrew, MacPorts, conda, nix-env, manual download)
+  - Windows (winget, chocolatey, scoop, manual download for x86_64/ARM64/x86)
+  - Linux (apt, dnf, yum, pacman, zypper, apk, xbps, emerge, nix, snap, flatpak, static binary fallback)
+  - macOS (Homebrew, MacPorts, conda, nix, manual download, auto Homebrew install)
+  - FreeBSD / OpenBSD / NetBSD (pkg, pkg_add, ports)
 
 Features:
   - CPU architecture detection (x86_64, ARM64, ARMv7, etc.)
   - Comprehensive Linux distribution detection
-  - Download with retry, timeout, progress bar, and proxy support
-  - Post-installation verification
+  - Download with retry, timeout, progress bar, and SSL/CA-bundle support
+  - Post-installation verification (ffmpeg + ffprobe)
   - Graceful fallback chain with informative error messages
   - Docker/CI environment awareness
+  - Preserves Windows registry PATH value type (REG_SZ / REG_EXPAND_SZ)
 """
 
 import os
@@ -26,7 +28,6 @@ import zipfile
 import tempfile
 import time
 import ssl
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -62,7 +63,7 @@ def _run_cmd(command, check=False, timeout=120):
             timeout=timeout,
             creationflags=creation_flags,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, KeyboardInterrupt):
         return None
 
 
@@ -222,21 +223,137 @@ def _sudo_prefix():
 
 
 # ---------------------------------------------------------------------------
-# Download helpers
+# System proxy detection
 # ---------------------------------------------------------------------------
 
-def _get_proxy_handler():
-    """Build a URL handler that honours ``HTTP_PROXY`` / ``HTTPS_PROXY`` /
-    ``ALL_PROXY`` / ``NO_PROXY`` environment variables.
+def _ensure_system_proxy():
+    """Detect the system proxy and set ``HTTP_PROXY`` / ``HTTPS_PROXY``
+    environment variables if they are not already set.
 
-    This is needed because ``urllib.request`` does **not** read these by default
-    on all platforms (especially when ``REQUESTS_CA_BUNDLE`` or custom SSL is
-    involved).
+    This ensures both ``urllib.request`` and child subprocesses (winget, choco,
+    brew, etc.) can reach the internet through a corporate / system proxy.
     """
-    # urllib.request.urlopen already respects http_proxy / https_proxy on most
-    # platforms, but we also handle SSL context explicitly.
-    return None  # Let stdlib handle it; we only customise SSL.
+    # Skip if proxy env vars are already configured
+    if os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY") or os.environ.get("ALL_PROXY"):
+        return
 
+    proxy_url = None
+
+    # --- Windows: read from registry ---
+    if sys.platform == "win32":
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                0, winreg.KEY_READ,
+            )
+            try:
+                enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+                if enabled:
+                    server, _ = winreg.QueryValueEx(key, "ProxyServer")
+                    if server:
+                        # server may be "host:port" or "http=host:port;https=host:port"
+                        if "=" in server or ";" in server:
+                            # Multi-protocol format: pick http or first entry
+                            for part in server.split(";"):
+                                part = part.strip()
+                                if part.startswith("http="):
+                                    proxy_url = "http://" + part.split("=", 1)[1]
+                                    break
+                            if not proxy_url:
+                                proxy_url = "http://" + server.split(";")[0].strip().split("=", 1)[-1]
+                        else:
+                            proxy_url = "http://" + server
+            except FileNotFoundError:
+                pass
+            winreg.CloseKey(key)
+        except Exception:
+            pass
+
+    # --- macOS: read from SystemConfiguration via scutil ---
+    elif sys.platform == "darwin":
+        result = _run_cmd(["scutil", "--proxy"], timeout=10)
+        if result and result.returncode == 0:
+            proxy_host = None
+            proxy_port = None
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("HTTPSPort") or line.startswith("HTTPPort"):
+                    parts = line.split(":", 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        proxy_port = parts[1].strip()
+                if line.startswith("HTTPSProxy") or line.startswith("HTTPProxy"):
+                    parts = line.split(":", 1)
+                    if len(parts) == 2 and parts[1].strip():
+                        if not proxy_host:  # first one wins (HTTPS preferred)
+                            proxy_host = parts[1].strip()
+            if proxy_host:
+                if ":" in proxy_host:
+                    proxy_url = "http://" + proxy_host
+                elif proxy_port:
+                    proxy_url = f"http://{proxy_host}:{proxy_port}"
+                else:
+                    proxy_url = "http://" + proxy_host
+        # Fallback: stdlib (reads macOS SystemConfiguration)
+        if not proxy_url:
+            try:
+                proxies = urllib.request.getproxies()
+                proxy_url = proxies.get("https") or proxies.get("http")
+            except Exception:
+                pass
+
+    # --- Linux: check desktop environment proxy settings ---
+    elif sys.platform.startswith("linux"):
+        # GNOME / Unity / Cinnamon (gsettings)
+        if not proxy_url:
+            for schema in ("org.gnome.system.proxy.http", "org.gnome.system.proxy"):
+                result = _run_cmd(
+                    ["gsettings", "get", schema, "host"], timeout=5,
+                )
+                if result and result.returncode == 0 and result.stdout.strip() not in ("''", ""):
+                    host = result.stdout.strip().strip("'")
+                    port_result = _run_cmd(
+                        ["gsettings", "get", schema, "port"], timeout=5,
+                    )
+                    port = port_result.stdout.strip().strip("'") if port_result else ""
+                    if host:
+                        proxy_url = f"http://{host}:{port}" if port else f"http://{host}"
+                        break
+
+        # KDE (kreadconfig5 / kreadconfig6)
+        if not proxy_url:
+            for cmd_name in ("kreadconfig6", "kreadconfig5"):
+                if not shutil.which(cmd_name):
+                    continue
+                result = _run_cmd(
+                    [cmd_name, "--group", "Proxy Settings", "--key", "httpProxy"], timeout=5,
+                )
+                if result and result.returncode == 0 and result.stdout.strip():
+                    proxy_url = "http://" + result.stdout.strip()
+                    break
+
+        # /etc/environment (system-wide)
+        if not proxy_url:
+            try:
+                with open("/etc/environment", "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("http_proxy=") or line.startswith("HTTP_PROXY="):
+                            proxy_url = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            break
+            except OSError:
+                pass
+
+    if proxy_url:
+        os.environ.setdefault("HTTP_PROXY", proxy_url)
+        os.environ.setdefault("HTTPS_PROXY", proxy_url)
+        print(f"  Using system proxy: {proxy_url}")
+
+
+# ---------------------------------------------------------------------------
+# Download helpers
+# ---------------------------------------------------------------------------
 
 def _get_ssl_context():
     """Create an SSL context that honours system / env configuration."""
@@ -268,6 +385,7 @@ def _download_file(url, dest_path, description="file"):
 
                 downloaded = 0
                 last_pct_printed = -1
+                last_size_printed = -1
                 with open(dest_path, "wb") as f:
                     while True:
                         chunk = resp.read(65536)
@@ -280,8 +398,16 @@ def _download_file(url, dest_path, description="file"):
                             if pct != last_pct_printed and pct % 10 == 0:
                                 last_pct_printed = pct
                                 print(f"\r  Downloading {description}: {pct}%  ", end="", flush=True)
+                        else:
+                            # Content-Length unknown: print progress every 1 MB
+                            mb = downloaded // (1024 * 1024)
+                            if mb != last_size_printed and mb > last_size_printed:
+                                last_size_printed = mb
+                                print(f"\r  Downloading {description}: {mb} MB  ", end="", flush=True)
                 if total:
                     print(f"\r  Downloading {description}: 100%  ")
+                else:
+                    print(f"\r  Downloading {description}: {downloaded // (1024 * 1024)} MB done  ")
                 return True
 
         except (urllib.error.URLError, urllib.error.HTTPError, OSError, ssl.SSLError) as e:
@@ -333,12 +459,15 @@ def _try_find_ffmpeg_in_common_locations():
             if os.path.isdir(winget_pkg):
                 for entry in os.listdir(winget_pkg):
                     if "ffmpeg" in entry.lower():
-                        bin_dir = os.path.join(winget_pkg, entry, "ffmpeg-master-latest-win64-gpl-shared", "bin")
-                        if os.path.isdir(bin_dir):
-                            candidates.append(bin_dir)
-                        # Also try without the nested folder
-                        bin_dir2 = os.path.join(winget_pkg, entry, "bin")
-                        if os.path.isdir(bin_dir2):
+                        pkg_dir = os.path.join(winget_pkg, entry)
+                        # Dynamically search for a bin/ containing ffmpeg.exe
+                        for root, dirs, files in os.walk(pkg_dir):
+                            if "ffmpeg.exe" in files:
+                                candidates.append(root)
+                                break
+                        # Also try a direct bin/ subfolder
+                        bin_dir2 = os.path.join(pkg_dir, "bin")
+                        if os.path.isdir(bin_dir2) and bin_dir2 not in candidates:
                             candidates.append(bin_dir2)
         # Chocolatey
         choco = os.environ.get("ProgramData", "")
@@ -381,6 +510,11 @@ def _try_find_ffmpeg_in_common_locations():
         nix_profile = os.path.expanduser("~/.nix-profile/bin")
         if os.path.isdir(nix_profile):
             candidates.append(nix_profile)
+
+    elif system in ("FreeBSD", "OpenBSD", "NetBSD"):
+        for p in ("/usr/local/bin", "/usr/bin"):
+            if os.path.isfile(os.path.join(p, "ffmpeg")):
+                candidates.append(p)
 
     for d in candidates:
         ffmpeg_full = os.path.join(d, "ffmpeg")
@@ -447,6 +581,13 @@ def _suggest_manual_install():
   Alpine:           apk add ffmpeg
   Void Linux:       sudo xbps-install -S ffmpeg
   Static binary:    https://johnvansickle.com/ffmpeg/
+""", file=sys.stderr)
+    elif system in ("FreeBSD", "OpenBSD", "NetBSD"):
+        print(f"""
+  FreeBSD:          sudo pkg install ffmpeg
+  OpenBSD:          sudo pkg_add ffmpeg
+  FreeBSD ports:    cd /usr/ports/multimedia/ffmpeg && sudo make install clean
+  NetBSD:           sudo pkgin install ffmpeg
 """, file=sys.stderr)
     else:
         print(f"""
@@ -576,12 +717,12 @@ def _try_add_to_user_path_windows(dir_path):
         import winreg
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_ALL_ACCESS)
         try:
-            current_path, _ = winreg.QueryValueEx(key, "Path")
+            current_path, reg_type = winreg.QueryValueEx(key, "Path")
         except FileNotFoundError:
-            current_path = ""
+            current_path, reg_type = "", winreg.REG_EXPAND_SZ
         if dir_path.lower() not in current_path.lower():
             new_path = dir_path + ";" + current_path if current_path else dir_path
-            winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
+            winreg.SetValueEx(key, "Path", 0, reg_type, new_path)
             # Notify the system about the change (broadcast WM_SETTINGCHANGE)
             try:
                 import ctypes
@@ -717,15 +858,26 @@ def install_on_linux():
             # Fedora/RHEL often need RPM Fusion for ffmpeg
             if pm_name == "dnf":
                 print("  Trying to enable RPM Fusion repository...")
-                rpmfusion_cmd = sudo + [
-                    "dnf", "install", "-y",
-                    "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm",
-                ] if not _distro_matches(distro, "fedora") else None
+                rpmfusion_cmd = None
                 if _distro_matches(distro, "fedora"):
                     rpmfusion_cmd = sudo + [
                         "dnf", "install", "-y",
                         "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm",
                     ]
+                else:
+                    rpmfusion_cmd = sudo + [
+                        "dnf", "install", "-y",
+                        "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm",
+                    ]
+                # Resolve shell variables via rpm -E
+                if rpmfusion_cmd:
+                    rpm_macro = "%fedora" if _distro_matches(distro, "fedora") else "%rhel"
+                    rpm_result = _run_cmd(["rpm", "-E", rpm_macro], timeout=10)
+                    if rpm_result and rpm_result.stdout.strip():
+                        rpm_version = rpm_result.stdout.strip()
+                        rpmfusion_cmd = [c.replace("$(rpm -E %fedora)", rpm_version)
+                                          .replace("$(rpm -E %rhel)", rpm_version)
+                                          for c in rpmfusion_cmd]
                 if rpmfusion_cmd:
                     _run_cmd(rpmfusion_cmd, timeout=120)
                     result = _run_cmd(cmd, timeout=180)
@@ -790,7 +942,8 @@ def install_on_linux():
     elif _distro_matches(distro, "gentoo"):
         if shutil.which("emerge"):
             pm_name = "emerge"
-            cmd = sudo + ["emerge", "-av", "media-video/ffmpeg"]
+            # -v verbose, --ask=n skip interactive prompt (non-interactive safe)
+            cmd = sudo + ["emerge", "-v", "--ask=n", "media-video/ffmpeg"]
             pm_tried.append(pm_name)
             print(f"  Trying {pm_name} (this may take a while)...")
             result = _run_cmd(cmd, timeout=3600)
@@ -801,6 +954,17 @@ def install_on_linux():
 
     # NixOS
     elif _distro_matches(distro, "nixos", "nix"):
+        # Try `nix profile` first (newer Nix), then fall back to `nix-env`
+        if shutil.which("nix"):
+            pm_name = "nix profile"
+            cmd = ["nix", "profile", "install", "nixpkgs#ffmpeg"]
+            pm_tried.append(pm_name)
+            print(f"  Trying {pm_name}...")
+            result = _run_cmd(cmd, timeout=300)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print(f"  FFmpeg installed via {pm_name}.")
+                return 0
+            print(f"  {pm_name} installation failed.", file=sys.stderr)
         if shutil.which("nix-env"):
             pm_name = "nix-env"
             cmd = ["nix-env", "-iA", "nixpkgs.ffmpeg"]
@@ -829,6 +993,31 @@ def install_on_linux():
                     print(f"  FFmpeg installed via {pm_name}.")
                     return 0
                 print(f"  {pm_name} failed.", file=sys.stderr)
+
+    # ---- Snap / Flatpak (universal Linux packages) ----
+    if shutil.which("snap"):
+        print("  Trying snap...")
+        result = _run_cmd(sudo + ["snap", "install", "ffmpeg"], timeout=300)
+        if result and result.returncode == 0:
+            # snap installs to /snap/bin which may not be in PATH
+            snap_bin = "/snap/bin"
+            if os.path.isfile(os.path.join(snap_bin, "ffmpeg")):
+                _prepend_to_path(snap_bin)
+            if shutil.which("ffmpeg"):
+                print("  FFmpeg installed via snap.")
+                return 0
+        print("  snap installation failed.", file=sys.stderr)
+
+    if shutil.which("flatpak"):
+        print("  Trying flatpak...")
+        result = _run_cmd(
+            ["flatpak", "install", "-y", "flathub", "org.freedesktop.Platform.ffmpeg-full//23.08"],
+            timeout=300,
+        )
+        if result and result.returncode == 0:
+            print("  FFmpeg flatpak runtime installed (may require app integration).")
+            return 0
+        print("  flatpak installation failed.", file=sys.stderr)
 
     # ---- Fallback: download static build ----
     print("  Package manager installation failed. Trying static binary download...")
@@ -873,15 +1062,17 @@ def _linux_download_static_fallback():
                 print(f"  Extraction failed: {e}", file=sys.stderr)
                 return False
 
-        # Find the ffmpeg binary in the extracted content
+        # Find the ffmpeg (and ffprobe) binaries in the extracted content
         for root, _dirs, files in os.walk(tmp):
             if "ffmpeg" in files:
-                src = os.path.join(root, "ffmpeg")
-                dst = os.path.join(install_dir, "ffmpeg")
-                shutil.copy2(src, dst)
-                os.chmod(dst, 0o755)
+                for binary in ("ffmpeg", "ffprobe"):
+                    if binary in files:
+                        src = os.path.join(root, binary)
+                        dst = os.path.join(install_dir, binary)
+                        shutil.copy2(src, dst)
+                        os.chmod(dst, 0o755)
                 _prepend_to_path(install_dir)
-                print(f"  FFmpeg installed to {dst}")
+                print(f"  FFmpeg installed to {os.path.join(install_dir, 'ffmpeg')}")
                 return True
 
     print("  Could not locate ffmpeg binary in downloaded archive.", file=sys.stderr)
@@ -896,9 +1087,14 @@ def install_on_macos():
     """Install FFmpeg on macOS via Homebrew, MacPorts, conda, or manual download."""
     print("FFmpeg not found. Attempting to install for macOS...")
 
+    sudo = _sudo_prefix()
+    method = 0
+    total = 6
+
     # Method 1: Homebrew
     if shutil.which("brew"):
-        print("  [1/5] Trying Homebrew...")
+        method += 1
+        print(f"  [{method}/{total}] Trying Homebrew...")
         result = _run_cmd(["brew", "install", "ffmpeg"], timeout=600)
         if result and result.returncode == 0 and shutil.which("ffmpeg"):
             print("  FFmpeg installed via Homebrew.")
@@ -907,8 +1103,9 @@ def install_on_macos():
 
     # Method 2: MacPorts
     if shutil.which("port"):
-        print("  [2/5] Trying MacPorts...")
-        result = _run_cmd(["sudo", "port", "install", "ffmpeg"], timeout=600)
+        method += 1
+        print(f"  [{method}/{total}] Trying MacPorts...")
+        result = _run_cmd(sudo + ["port", "install", "ffmpeg"], timeout=600)
         if result and result.returncode == 0 and shutil.which("ffmpeg"):
             print("  FFmpeg installed via MacPorts.")
             return 0
@@ -916,7 +1113,8 @@ def install_on_macos():
 
     # Method 3: Conda
     if shutil.which("conda"):
-        print("  [3/5] Trying Conda...")
+        method += 1
+        print(f"  [{method}/{total}] Trying Conda...")
         result = _run_cmd(["conda", "install", "-c", "conda-forge", "ffmpeg", "-y"], timeout=600)
         if result and result.returncode == 0 and shutil.which("ffmpeg"):
             print("  FFmpeg installed via Conda.")
@@ -924,23 +1122,25 @@ def install_on_macos():
         print("  Conda installation failed.", file=sys.stderr)
 
     # Method 4: Nix
-    if shutil.which("nix-env"):
-        print("  [4/5] Trying Nix...")
-        result = _run_cmd(["nix-env", "-iA", "nixpkgs.ffmpeg"], timeout=300)
-        if result and result.returncode == 0 and shutil.which("ffmpeg"):
-            print("  FFmpeg installed via Nix.")
-            return 0
+    if shutil.which("nix") or shutil.which("nix-env"):
+        method += 1
+        print(f"  [{method}/{total}] Trying Nix...")
+        if shutil.which("nix"):
+            result = _run_cmd(["nix", "profile", "install", "nixpkgs#ffmpeg"], timeout=300)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print("  FFmpeg installed via Nix (nix profile).")
+                return 0
+        if shutil.which("nix-env"):
+            result = _run_cmd(["nix-env", "-iA", "nixpkgs.ffmpeg"], timeout=300)
+            if result and result.returncode == 0 and shutil.which("ffmpeg"):
+                print("  FFmpeg installed via Nix (nix-env).")
+                return 0
         print("  Nix installation failed.", file=sys.stderr)
 
-    # Method 5: Manual download
-    print("  [5/5] Downloading pre-built FFmpeg binary...")
-    if _macos_download_fallback():
-        print("  FFmpeg installed via manual download.")
-        return 0
-
-    # Method 6: Install Homebrew automatically
+    # Method 5: Install Homebrew automatically (before manual download)
     if not shutil.which("brew"):
-        print("  Attempting to install Homebrew first...")
+        method += 1
+        print(f"  [{method}/{total}] Attempting to install Homebrew first...")
         result = _run_cmd(
             ['/bin/bash', '-c',
              '$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)'],
@@ -950,16 +1150,20 @@ def install_on_macos():
             # Try brew again
             brew_path = "/opt/homebrew/bin/brew" if platform.machine() == "arm64" else "/usr/local/bin/brew"
             if os.path.isfile(brew_path):
-                result = _run_cmd([brew_path, "install", "ffmpeg"], timeout=600)
-                if result and result.returncode == 0 and shutil.which("ffmpeg"):
-                    print("  FFmpeg installed via Homebrew (auto-installed).")
-                    return 0
-            elif shutil.which("brew"):
+                _prepend_to_path(os.path.dirname(brew_path))
+            if shutil.which("brew"):
                 result = _run_cmd(["brew", "install", "ffmpeg"], timeout=600)
                 if result and result.returncode == 0 and shutil.which("ffmpeg"):
                     print("  FFmpeg installed via Homebrew (auto-installed).")
                     return 0
         print("  Homebrew auto-installation failed.", file=sys.stderr)
+
+    # Method 6: Manual download
+    method += 1
+    print(f"  [{method}/{total}] Downloading pre-built FFmpeg binary...")
+    if _macos_download_fallback():
+        print("  FFmpeg installed via manual download.")
+        return 0
 
     return -1 if not _suggest_manual_install() else -1
 
@@ -1004,6 +1208,45 @@ def _macos_download_fallback():
 
 
 # ===================================================================
+# BSD installation
+# ===================================================================
+
+def install_on_bsd():
+    """Install FFmpeg on FreeBSD / OpenBSD / NetBSD via pkg or ports."""
+    print("FFmpeg not found. Attempting to install for BSD...")
+
+    # Method 1: pkg (FreeBSD / NetBSD)
+    if shutil.which("pkg"):
+        print("  Trying pkg...")
+        result = _run_cmd(["pkg", "install", "-y", "ffmpeg"], timeout=300)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via pkg.")
+            return 0
+        print("  pkg installation failed.", file=sys.stderr)
+
+    # Method 2: pkg_add (OpenBSD)
+    if shutil.which("pkg_add"):
+        print("  Trying pkg_add...")
+        result = _run_cmd(["pkg_add", "ffmpeg"], timeout=300)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via pkg_add.")
+            return 0
+        print("  pkg_add installation failed.", file=sys.stderr)
+
+    # Method 3: ports (FreeBSD)
+    ports_makefile = "/usr/ports/multimedia/ffmpeg"
+    if os.path.isfile(os.path.join(ports_makefile, "Makefile")):
+        print("  Trying FreeBSD ports...")
+        result = _run_cmd(["make", "-C", ports_makefile, "install", "clean"], timeout=3600)
+        if result and result.returncode == 0 and shutil.which("ffmpeg"):
+            print("  FFmpeg installed via ports.")
+            return 0
+        print("  ports installation failed.", file=sys.stderr)
+
+    return -1 if not _suggest_manual_install() else -1
+
+
+# ===================================================================
 # Main entry point
 # ===================================================================
 
@@ -1013,6 +1256,7 @@ def install_ffmpeg_if_needed():
     Returns 0 on success (ffmpeg is available), -1 on failure.
     """
     print("Checking for FFmpeg...")
+    _ensure_system_proxy()
 
     # Step 1: Check if FFmpeg is already in PATH
     if shutil.which("ffmpeg"):
@@ -1039,6 +1283,8 @@ def install_ffmpeg_if_needed():
         return install_on_linux()
     elif os_name == "Darwin":
         return install_on_macos()
+    elif os_name in ("FreeBSD", "OpenBSD", "NetBSD"):
+        return install_on_bsd()
     else:
         print(f"Unsupported OS: {os_name}", file=sys.stderr)
         return -1
