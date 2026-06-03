@@ -22,6 +22,7 @@ from .utils import (
     get_local_version, check_codec_support, get_ffmpeg_supported_codecs,
     run_ffmpeg_command, get_file_extension, get_out_pix_fmt,
     prepare_temp_dir, print_codec_support_report, format_verbose_log,
+    get_ffmpeg_path, set_ffmpeg_path, find_all_ffmpeg_in_path, verify_ffmpeg_path,
 )
 from .codec_defs import (
     RESOLUTIONS, DECODER_TITLES, ENCODER_TITLES, DECODERS, ENCODERS, ALL_CODECS,
@@ -59,12 +60,13 @@ def _run_encoder_test_single(test_data):
     import shlex
 
     codec, encoder, res_name, res_size, test_dir, verbose = test_data
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
 
     if "vulkan" in encoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
@@ -73,7 +75,7 @@ def _run_encoder_test_single(test_data):
         ]
     elif "d3d12va" in encoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "d3d12va:0",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
@@ -82,7 +84,7 @@ def _run_encoder_test_single(test_data):
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
             "-c:v", encoder, "-pixel_format", "yuv420p", output_file,
@@ -119,6 +121,7 @@ def _run_decoder_test_single(test_data):
     import shlex
 
     codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
@@ -134,7 +137,7 @@ def _run_decoder_test_single(test_data):
     if not found_file:
         cpu_lib = ALL_CODECS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
@@ -145,27 +148,27 @@ def _run_decoder_test_single(test_data):
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan", "-hwaccel_output_format", "vulkan",
             "-i", test_file_path, "-f", "null", "null",
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file_path, "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -192,6 +195,7 @@ def _run_encoder_bitdepth_test(test_data):
     import shlex
 
     codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
 
@@ -199,7 +203,7 @@ def _run_encoder_bitdepth_test(test_data):
 
     if "vulkan" in encoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
@@ -208,7 +212,7 @@ def _run_encoder_bitdepth_test(test_data):
         ]
     elif "d3d12va" in encoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "d3d12va:0",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
@@ -217,7 +221,7 @@ def _run_encoder_bitdepth_test(test_data):
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
             "-c:v", encoder, "-pix_fmt", pix_fmt, output_file,
@@ -255,13 +259,14 @@ def _run_decoder_bitdepth_test(test_data):
     import shlex
 
     codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
 
     if not os.path.exists(test_file) or os.path.getsize(test_file) == 0:
         cpu_lib = BD_DECODERS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pix_fmt", pix_fmt,
             test_file,
@@ -273,27 +278,27 @@ def _run_decoder_bitdepth_test(test_data):
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan", "-hwaccel_output_format", "vulkan",
             "-i", test_file, "-f", "null", "null",
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file, "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "error", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -635,6 +640,12 @@ class HwCodecGUI:
         self._start_time = None
         self._current_page = None
         self._nav_buttons = {}
+        self._ffmpeg_active_path = None
+
+        # Apply CLI --ffmpeg-path if provided (highest priority)
+        ffmpeg_path_arg = getattr(args, 'ffmpeg_path', None)
+        if ffmpeg_path_arg:
+            set_ffmpeg_path(ffmpeg_path_arg)
 
         self._setup_window()
         self._build_ui()
@@ -940,6 +951,126 @@ class HwCodecGUI:
         for widget in self._ffmpeg_cards_frame.winfo_children():
             widget.destroy()
 
+        # Card 0: FFmpeg Path Selection
+        card0 = tk.Frame(self._ffmpeg_cards_frame, bg=BG_SURFACE,
+                         highlightbackground=BORDER, highlightthickness=1)
+        card0.pack(fill="x", pady=(0, 12))
+
+        tk.Label(card0, text="  FFMPEG PATH", font=(FAMILY, 9, "bold"),
+                 fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(12, 6))
+
+        # Discover all available ffmpeg paths
+        all_paths = find_all_ffmpeg_in_path()
+        current_path = get_ffmpeg_path()
+        env_path = os.environ.get("FFMPEG_PATH", "").strip()
+
+        # Build candidate list (deduplicated, preserving order)
+        candidates = []
+        for p in all_paths:
+            if p not in candidates:
+                candidates.append(p)
+        if env_path and env_path not in candidates and os.path.isfile(env_path):
+            candidates.append(env_path)
+        if current_path and current_path not in candidates and os.path.isfile(current_path):
+            candidates.append(current_path)
+
+        # Track the active selection for downstream cards
+        self._ffmpeg_active_path = current_path if (current_path and current_path != "ffmpeg") else None
+
+        # Style the ttk.Combobox to match the dark theme
+        style = ttk.Style()
+        style.configure("FFmpeg.TCombobox",
+                         fieldbackground=BG_INPUT,
+                         background=BG_ELEVATED,
+                         foreground=TEXT_PRIMARY,
+                         bordercolor=BORDER,
+                         arrowcolor=TEXT_SECONDARY,
+                         selectbackground=ACCENT,
+                         selectforeground="#ffffff")
+        style.map("FFmpeg.TCombobox",
+                  fieldbackground=[("readonly", BG_INPUT), ("active", BG_INPUT)],
+                  foreground=[("readonly", TEXT_PRIMARY)],
+                  bordercolor=[("focus", ACCENT)])
+
+        # Dropdown row
+        sel_row = tk.Frame(card0, bg=BG_SURFACE)
+        sel_row.pack(fill="x", padx=16, pady=(4, 2))
+        tk.Label(sel_row, text="Executable", font=(FAMILY, 9),
+                 fg=TEXT_DIM, bg=BG_SURFACE, width=12, anchor="w").pack(side="left")
+
+        combo_var = tk.StringVar(value=current_path if current_path else "")
+        combo = ttk.Combobox(sel_row, textvariable=combo_var, values=candidates,
+                             width=60, state="normal", font=(FAMILY_MONO, 9),
+                             style="FFmpeg.TCombobox")
+        combo.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        def _on_combo_select(event=None):
+            selected = combo_var.get().strip()
+            if selected and os.path.isfile(selected):
+                set_ffmpeg_path(selected)
+                self._ffmpeg_active_path = selected
+                self._ffmpeg_verify_status.configure(text="")
+                self._refresh_ffmpeg_env()
+
+        combo.bind("<<ComboboxSelected>>", _on_combo_select)
+
+        def _on_verify():
+            path = combo_var.get().strip()
+            if not path:
+                self._ffmpeg_verify_status.configure(text="Please enter a path", fg=ORANGE)
+                return
+            ok, msg = verify_ffmpeg_path(path)
+            # Truncate long messages to keep layout clean
+            if len(msg) > 60:
+                msg = msg[:57] + "..."
+            if ok:
+                self._ffmpeg_verify_status.configure(text=msg, fg=GREEN)
+                set_ffmpeg_path(path)
+                self._ffmpeg_active_path = path
+            else:
+                self._ffmpeg_verify_status.configure(text=msg, fg=RED)
+
+        _FlatButton(sel_row, text="Verify", command=_on_verify,
+                    font=(FAMILY, 9), padx=12, pady=4).pack(side="right")
+
+        # Status row (separate to avoid crowding buttons)
+        status_row = tk.Frame(card0, bg=BG_SURFACE)
+        status_row.pack(fill="x", padx=16, pady=(2, 2))
+        tk.Label(status_row, text="", width=12, bg=BG_SURFACE).pack(side="left")
+        self._ffmpeg_verify_status = tk.Label(status_row, text="", font=(FAMILY, 9),
+                                              fg=TEXT_SECONDARY, bg=BG_SURFACE, anchor="w")
+        self._ffmpeg_verify_status.pack(side="left", fill="x", expand=True)
+
+        # Custom path entry row
+        custom_row = tk.Frame(card0, bg=BG_SURFACE)
+        custom_row.pack(fill="x", padx=16, pady=(4, 8))
+        tk.Label(custom_row, text="Custom path", font=(FAMILY, 9),
+                 fg=TEXT_DIM, bg=BG_SURFACE, width=12, anchor="w").pack(side="left")
+
+        custom_entry = tk.Entry(custom_row, font=(FAMILY_MONO, 9), bg=BG_INPUT,
+                                fg=TEXT_PRIMARY, insertbackground=TEXT_PRIMARY,
+                                relief="flat", highlightthickness=1,
+                                highlightbackground=BORDER, highlightcolor=ACCENT)
+        custom_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        def _on_apply_custom():
+            path = custom_entry.get().strip()
+            if not path:
+                return
+            ok, msg = verify_ffmpeg_path(path)
+            if len(msg) > 60:
+                msg = msg[:57] + "..."
+            if ok:
+                set_ffmpeg_path(path)
+                self._ffmpeg_active_path = path
+                self._ffmpeg_verify_status.configure(text=msg, fg=GREEN)
+                self._refresh_ffmpeg_env()
+            else:
+                self._ffmpeg_verify_status.configure(text=msg, fg=RED)
+
+        _FlatButton(custom_row, text="Apply", command=_on_apply_custom,
+                    accent=True, font=(FAMILY, 9), padx=12, pady=4).pack(side="right")
+
         # Card 1: FFmpeg Installation Status
         card1 = tk.Frame(self._ffmpeg_cards_frame, bg=BG_SURFACE,
                          highlightbackground=BORDER, highlightthickness=1)
@@ -948,7 +1079,7 @@ class HwCodecGUI:
         tk.Label(card1, text="  INSTALLATION", font=(FAMILY, 9, "bold"),
                  fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(12, 6))
 
-        ffmpeg_path = shutil.which("ffmpeg")
+        ffmpeg_path = self._ffmpeg_active_path
         if ffmpeg_path:
             # FFmpeg found
             row = tk.Frame(card1, bg=BG_SURFACE)
@@ -966,16 +1097,8 @@ class HwCodecGUI:
                      fg=TEXT_PRIMARY, bg=BG_SURFACE, anchor="w").pack(side="left")
 
             # Get version
-            creation_flags = 0
-            if sys.platform == "win32":
-                creation_flags = subprocess.CREATE_NO_WINDOW
-            try:
-                result = subprocess.run(
-                    ["ffmpeg", "-version"], capture_output=True, text=True,
-                    encoding='utf-8', errors='ignore', creationflags=creation_flags,
-                    timeout=10)
-                version_line = result.stdout.split('\n')[0] if result.stdout else "Unknown"
-            except Exception:
+            ok, version_line = verify_ffmpeg_path(ffmpeg_path)
+            if not ok:
                 version_line = "Unable to retrieve"
 
             row3 = tk.Frame(card1, bg=BG_SURFACE)
@@ -1013,13 +1136,14 @@ class HwCodecGUI:
         tk.Label(card2, text="  HARDWARE ACCELERATION APIs", font=(FAMILY, 9, "bold"),
                  fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(12, 6))
 
+        hwaccels = []
         if ffmpeg_path:
             creation_flags = 0
             if sys.platform == "win32":
                 creation_flags = subprocess.CREATE_NO_WINDOW
             try:
                 result = subprocess.run(
-                    ["ffmpeg", "-hide_banner", "-hwaccels"],
+                    [ffmpeg_path, "-hide_banner", "-hwaccels"],
                     capture_output=True, text=True, encoding='utf-8',
                     errors='ignore', creationflags=creation_flags,
                     timeout=10)
@@ -1075,7 +1199,7 @@ class HwCodecGUI:
             for label_text, value, total, color in [
                 ("Encoders", enc_supported, enc_total, GREEN if enc_supported > 0 else TEXT_DIM),
                 ("Decoders", dec_supported, dec_total, GREEN if dec_supported > 0 else TEXT_DIM),
-                ("HW APIs", len(hwaccels) if 'hwaccels' in dir() else 0, "—", ACCENT),
+                ("HW APIs", len(hwaccels), "—", ACCENT),
             ]:
                 col = tk.Frame(stats_frame, bg=BG_SURFACE)
                 col.pack(side="left", padx=(0, 32))
@@ -1098,7 +1222,8 @@ class HwCodecGUI:
         def _install_thread():
             try:
                 result = install_ffmpeg_if_needed()
-                success = (result == 0 and shutil.which("ffmpeg"))
+                ffmpeg = get_ffmpeg_path()
+                success = (result == 0 and ffmpeg and os.path.isfile(ffmpeg))
                 self.root.after(0, lambda: self._on_ffmpeg_install_done(success))
             except Exception as e:
                 print(f"Installation error: {e}")
@@ -1516,7 +1641,8 @@ class HwCodecGUI:
             self._clear_tables()
 
     def start_test(self):
-        if not shutil.which("ffmpeg"):
+        ffmpeg = get_ffmpeg_path()
+        if not ffmpeg or not os.path.isfile(ffmpeg):
             self.prompt_install_ffmpeg()
             return
         self._execute_test_flow()
@@ -1554,7 +1680,8 @@ class HwCodecGUI:
                     "Please install FFmpeg manually:\nhttps://ffmpeg.org/download.html")
         try:
             result = install_ffmpeg_if_needed()
-            if result == 0 and shutil.which("ffmpeg"):
+            ffmpeg = get_ffmpeg_path()
+            if result == 0 and ffmpeg and os.path.isfile(ffmpeg):
                 self.root.after(0, lambda: update_ui_after_install(True))
             else:
                 self.root.after(0, lambda: update_ui_after_install(False))

@@ -8,6 +8,95 @@ import shlex
 import subprocess
 from pathlib import Path
 
+# ─── FFmpeg Path Management ─────────────────────────────────────────────────
+# Priority: set_ffmpeg_path() > --ffmpeg-path CLI arg > FFMPEG_PATH env > PATH lookup
+
+_ffmpeg_path_override = None
+
+
+def set_ffmpeg_path(path):
+    """Override the FFmpeg executable path used by all tests.
+
+    Args:
+        path: Absolute path to the ffmpeg executable, or None to clear.
+    """
+    global _ffmpeg_path_override
+    _ffmpeg_path_override = path if path else None
+
+
+def get_ffmpeg_path():
+    """Return the FFmpeg executable path to use.
+
+    Priority order:
+        1. Path set via set_ffmpeg_path() (CLI --ffmpeg-path or GUI selection)
+        2. FFMPEG_PATH environment variable
+        3. shutil.which("ffmpeg") — PATH lookup (default behavior)
+    """
+    if _ffmpeg_path_override:
+        return _ffmpeg_path_override
+
+    env_path = os.environ.get("FFMPEG_PATH", "").strip()
+    if env_path and os.path.isfile(env_path):
+        return env_path
+
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+
+def find_all_ffmpeg_in_path():
+    """Search PATH directories for all ffmpeg executables.
+
+    Returns:
+        list[str]: Absolute paths to every ffmpeg found, sorted alphabetically.
+                   Returns an empty list if none found.
+    """
+    ffmpeg_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+    found = set()
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    for d in path_dirs:
+        if not d:
+            continue
+        candidate = os.path.join(d, ffmpeg_name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            try:
+                found.add(os.path.realpath(candidate))
+            except OSError:
+                found.add(candidate)
+    return sorted(found)
+
+
+def verify_ffmpeg_path(path):
+    """Verify that a given path points to a working FFmpeg executable.
+
+    Args:
+        path: Absolute path to the ffmpeg executable.
+
+    Returns:
+        tuple: (success: bool, version_line: str)
+    """
+    if not path or not os.path.isfile(path):
+        return False, "File does not exist"
+    try:
+        creation_flags = 0
+        if sys.platform == "win32":
+            creation_flags = subprocess.CREATE_NO_WINDOW
+        result = subprocess.run(
+            [path, "-version"],
+            capture_output=True, text=True,
+            encoding='utf-8', errors='ignore',
+            creationflags=creation_flags,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout:
+            version_line = result.stdout.split('\n')[0].strip()
+            return True, version_line
+        return False, result.stderr.strip() or "FFmpeg returned non-zero exit code"
+    except FileNotFoundError:
+        return False, "File not found"
+    except subprocess.TimeoutExpired:
+        return False, "FFmpeg did not respond within 10 seconds"
+    except Exception as e:
+        return False, str(e)
+
 # ─── Colorful CLI theme (ANSI equivalents of the GUI theme) ─────────────────
 # These are only used when --colorful is enabled.
 
@@ -110,6 +199,7 @@ def get_ffmpeg_supported_codecs():
     """
     supported_encoders = set()
     supported_decoders = set()
+    ffmpeg = get_ffmpeg_path()
 
     creation_flags = 0
     if sys.platform == "win32":
@@ -117,7 +207,7 @@ def get_ffmpeg_supported_codecs():
     try:
         # Get encoders
         result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-encoders"],
+            [ffmpeg, "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,
             encoding='utf-8',
@@ -135,7 +225,7 @@ def get_ffmpeg_supported_codecs():
 
         # Get decoders
         result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-decoders"],
+            [ffmpeg, "-hide_banner", "-decoders"],
             capture_output=True,
             text=True,
             encoding='utf-8',
@@ -152,7 +242,7 @@ def get_ffmpeg_supported_codecs():
 
         # Get hardware acceleration methods
         result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-hwaccels"],
+            [ffmpeg, "-hide_banner", "-hwaccels"],
             capture_output=True,
             text=True,
             encoding='utf-8',

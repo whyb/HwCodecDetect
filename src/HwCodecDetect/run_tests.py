@@ -12,6 +12,7 @@ from .utils import (
     check_codec_support, get_stty_cfg, set_stty_cfg,
     run_ffmpeg_command, get_display_width, get_file_extension,
     prepare_temp_dir, print_codec_support_report, format_verbose_log,
+    get_ffmpeg_path, set_ffmpeg_path,
 )
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -132,11 +133,12 @@ def _run_encoder_test_single(test_data):
         title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
         return title, res_name, "skipped"
 
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
     if "vulkan" in encoder:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -150,7 +152,7 @@ def _run_encoder_test_single(test_data):
         ]
     elif "d3d12va" in encoder:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -164,7 +166,7 @@ def _run_encoder_test_single(test_data):
         ]
     else:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -244,6 +246,7 @@ def _run_decoder_test_single(test_data):
         title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
         return title, res_name, "skipped"
 
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
 
@@ -260,7 +263,7 @@ def _run_decoder_test_single(test_data):
     if not found_file:
         cpu_lib = ALL_CODECS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pixel_format", "yuv420p",
             test_file_path,
@@ -271,7 +274,7 @@ def _run_decoder_test_single(test_data):
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
@@ -280,21 +283,21 @@ def _run_decoder_test_single(test_data):
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file_path,
             "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -481,9 +484,11 @@ def run_all_tests(args):
     else:
         print("Starting hardware codec detection test suite...")
 
-    if install_ffmpeg_if_needed() != 0:
-        print("Error: FFmpeg dependency not met. Please check installation.", file=sys.stderr)
-        return -1
+    # Skip auto-install when a custom ffmpeg path is explicitly provided
+    if not getattr(args, 'ffmpeg_path', None):
+        if install_ffmpeg_if_needed() != 0:
+            print("Error: FFmpeg dependency not met. Please check installation.", file=sys.stderr)
+            return -1
 
     # Check codec support before running tests
     if colorful:
@@ -621,9 +626,22 @@ def main():
         help='Enable colorful ASCII art style output for CLI mode (ignored when --ui is enabled)'
     )
 
+    parser.add_argument(
+        '--ffmpeg-path',
+        type=str,
+        default=None,
+        help='Absolute path to the FFmpeg executable to use for all tests.\n'
+             'Overrides FFMPEG_PATH env var and PATH lookup.\n'
+             'If not set, falls back to FFMPEG_PATH env var, then PATH.'
+    )
+
     args = parser.parse_args()
     # Set bitdepth_chroma to True unless --no-bitdepth-chroma is specified
     args.bitdepth_chroma = not args.no_bitdepth_chroma
+
+    # Apply custom ffmpeg path (highest priority)
+    if args.ffmpeg_path:
+        set_ffmpeg_path(args.ffmpeg_path)
 
     # Check --ui flag OR environment variable (for CI GUI builds)
     if args.ui or os.environ.get("HWCODECDETECT_GUI") == "1":

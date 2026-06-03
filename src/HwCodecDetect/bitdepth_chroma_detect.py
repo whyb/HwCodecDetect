@@ -27,6 +27,7 @@ from .utils import (
     prepare_temp_dir,
     print_codec_support_report,
     format_verbose_log,
+    get_ffmpeg_path,
 )
 
 init(autoreset=True)
@@ -41,6 +42,7 @@ def _run_encoder_bitdepth_test(test_data):
         title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
         return title, pix_fmt, bit_depth, chroma, "skipped"
 
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
 
@@ -48,7 +50,7 @@ def _run_encoder_bitdepth_test(test_data):
 
     if "vulkan" in encoder:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -62,7 +64,7 @@ def _run_encoder_bitdepth_test(test_data):
         ]
     elif "d3d12va" in encoder:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -76,7 +78,7 @@ def _run_encoder_bitdepth_test(test_data):
         ]
     else:
         command = [
-            "ffmpeg",
+            ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
@@ -160,6 +162,7 @@ def _run_decoder_bitdepth_test(test_data):
         title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
         return title, pix_fmt, bit_depth, chroma, "skipped"
 
+    ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
 
@@ -167,7 +170,7 @@ def _run_decoder_bitdepth_test(test_data):
     if not os.path.exists(test_file) or os.path.getsize(test_file) == 0:
         cpu_lib = DECODERS[codec]["lib"]
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1", "-c:v", cpu_lib, "-pix_fmt", pix_fmt,
             test_file,
@@ -178,7 +181,7 @@ def _run_decoder_bitdepth_test(test_data):
 
     if "vulkan" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-init_hw_device", "vulkan=vk:0",
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
@@ -187,21 +190,21 @@ def _run_decoder_bitdepth_test(test_data):
         ]
     elif "videotoolbox" in hw_decoder:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", "videotoolbox",
             "-i", test_file,
             "-f", "null", "null",
         ]
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-hwaccel", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
         ]
     else:
         command = [
-            "ffmpeg", "-loglevel", "quiet", "-hide_banner", "-y",
+            ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
             "-c:v", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
