@@ -49,6 +49,12 @@ def _run_encoder_bitdepth_test(test_data):
     out_pix_fmt = get_out_pix_fmt(bit_depth, chroma)
 
     if "vulkan" in encoder:
+        # Vulkan hwupload only accepts semi-planar HW-friendly formats
+        vulkan_pix_fmt = {
+            "yuv420p": "nv12",
+            "yuv420p10le": "p010le",
+            "yuv420p12le": "p012le",
+        }.get(pix_fmt, pix_fmt)
         command = [
             ffmpeg,
             "-loglevel", "quiet",
@@ -58,7 +64,7 @@ def _run_encoder_bitdepth_test(test_data):
             "-f", "lavfi",
             "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
-            "-vf", f"format={pix_fmt},hwupload,format=vulkan",
+            "-vf", f"format={vulkan_pix_fmt},hwupload,format=vulkan",
             "-c:v", encoder,
             output_file,
         ]
