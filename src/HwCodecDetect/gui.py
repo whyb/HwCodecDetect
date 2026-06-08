@@ -23,6 +23,7 @@ from .utils import (
     run_ffmpeg_command, get_file_extension, get_out_pix_fmt,
     prepare_temp_dir, print_codec_support_report, format_verbose_log,
     get_ffmpeg_path, set_ffmpeg_path, find_all_ffmpeg_in_path, verify_ffmpeg_path,
+    get_hw_init_args,
 )
 from .codec_defs import (
     RESOLUTIONS, DECODER_TITLES, ENCODER_TITLES, DECODERS, ENCODERS, ALL_CODECS,
@@ -59,15 +60,16 @@ def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
     import shlex
 
-    codec, encoder, res_name, res_size, test_dir, verbose = test_data
+    codec, encoder, res_name, res_size, test_dir, verbose, device_ids = test_data
     ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
+    hw_init_args = get_hw_init_args(encoder, device_ids)
 
     if "vulkan" in encoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
             "-vf", "format=nv12,hwupload,format=vulkan",
@@ -76,7 +78,7 @@ def _run_encoder_test_single(test_data):
     elif "d3d12va" in encoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "d3d12va:0",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
             "-vf", "format=nv12,hwupload",
@@ -85,6 +87,7 @@ def _run_encoder_test_single(test_data):
     else:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
             "-c:v", encoder, "-pixel_format", "yuv420p", output_file,
@@ -120,7 +123,7 @@ def _run_decoder_test_single(test_data):
     """Runs a single decoder test and returns the result."""
     import shlex
 
-    codec, hw_decoder, res_name, res_size, test_dir, verbose = test_data
+    codec, hw_decoder, res_name, res_size, test_dir, verbose, device_ids = test_data
     ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file_path = os.path.join(test_dir, f"{codec}_{res_name}{file_ext}")
@@ -146,10 +149,11 @@ def _run_decoder_test_single(test_data):
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, res_name, "skipped", "Failed to create test file"
 
+    hw_init_args = get_hw_init_args(hw_decoder, device_ids)
     if "vulkan" in hw_decoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-hwaccel", "vulkan", "-hwaccel_output_format", "vulkan",
             "-i", test_file_path, "-f", "null", "null",
         ]
@@ -162,6 +166,7 @@ def _run_decoder_test_single(test_data):
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
+            *hw_init_args,
             "-hwaccel", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -194,17 +199,18 @@ def _run_encoder_bitdepth_test(test_data):
     """Tests encoder support for a specific pixel format."""
     import shlex
 
-    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, device_ids = test_data
     ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
 
     out_pix_fmt = get_out_pix_fmt(bit_depth, chroma)
+    hw_init_args = get_hw_init_args(encoder, device_ids)
 
     if "vulkan" in encoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
             "-vf", f"format={pix_fmt},hwupload,format=vulkan",
@@ -213,7 +219,7 @@ def _run_encoder_bitdepth_test(test_data):
     elif "d3d12va" in encoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "d3d12va:0",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
             "-vf", f"format={pix_fmt},hwupload",
@@ -222,6 +228,7 @@ def _run_encoder_bitdepth_test(test_data):
     else:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
+            *hw_init_args,
             "-f", "lavfi", "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
             "-c:v", encoder, "-pix_fmt", pix_fmt, output_file,
@@ -258,7 +265,7 @@ def _run_decoder_bitdepth_test(test_data):
     """Tests decoder support for a specific pixel format."""
     import shlex
 
-    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose = test_data
+    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, device_ids = test_data
     ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     test_file = os.path.join(test_dir, f"{codec}_{pix_fmt}{file_ext}")
@@ -276,10 +283,11 @@ def _run_decoder_bitdepth_test(test_data):
             key = f"{bit_depth}-bit {chroma}"
             return title, key, "skipped", "Failed to create test file"
 
+    hw_init_args = get_hw_init_args(hw_decoder, device_ids)
     if "vulkan" in hw_decoder:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-hwaccel", "vulkan", "-hwaccel_output_format", "vulkan",
             "-i", test_file, "-f", "null", "null",
         ]
@@ -292,6 +300,7 @@ def _run_decoder_bitdepth_test(test_data):
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
             ffmpeg, "-loglevel", "error", "-hide_banner", "-y",
+            *hw_init_args,
             "-hwaccel", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -1471,6 +1480,44 @@ class HwCodecGUI:
         tk.Label(spin_frame2, text="  (1 – 8)", font=(FAMILY, 9),
                  fg=TEXT_DIM, bg=BG_SURFACE).pack(side="left")
 
+        # ── Device ID card (compact grid) ──
+        dev_card = tk.Frame(settings_area, bg=BG_SURFACE,
+                            highlightbackground=BORDER, highlightthickness=1)
+        dev_card.pack(fill="x", pady=(0, 12))
+
+        tk.Label(dev_card, text="  HARDWARE DEVICE IDS", font=(FAMILY, 9, "bold"),
+                 fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(12, 4))
+        tk.Label(dev_card, text="  Device index for each hardware API (0 = first device)",
+                 font=(FAMILY, 9), fg=TEXT_DIM, bg=BG_SURFACE, anchor="w").pack(fill="x", padx=16, pady=(0, 8))
+
+        grid_frame = tk.Frame(dev_card, bg=BG_SURFACE)
+        grid_frame.pack(fill="x", padx=16, pady=(0, 14))
+
+        device_configs = [
+            ("vulkan_device_id",  "Vulkan"),
+            ("d3d12va_device_id", "D3D12VA"),
+            ("dxva2_device_id",   "DXVA2"),
+            ("d3d11va_device_id", "D3D11VA"),
+            ("nvenc_device_id",   "NVEnc"),
+        ]
+        self._device_id_vars = {}
+        cols = 3
+        for i, (attr_name, label) in enumerate(device_configs):
+            row, col = divmod(i, cols)
+            cell = tk.Frame(grid_frame, bg=BG_SURFACE)
+            cell.grid(row=row, column=col, padx=(0, 24), pady=4, sticky="w")
+
+            tk.Label(cell, text=label, font=(FAMILY, 10),
+                     fg=TEXT_SECONDARY, bg=BG_SURFACE).pack(side="left")
+            var = tk.StringVar(value=str(getattr(self.args, attr_name, 0) or 0))
+            self._device_id_vars[attr_name] = var
+            sp = tk.Spinbox(cell, from_=0, to=15, textvariable=var,
+                            width=4, font=(FAMILY_MONO, 11), bg=BG_INPUT, fg=TEXT_PRIMARY,
+                            buttonbackground=BG_ELEVATED, relief="flat",
+                            highlightthickness=1, highlightbackground=BORDER,
+                            highlightcolor=ACCENT, insertbackground=TEXT_PRIMARY)
+            sp.pack(side="left", padx=(8, 0))
+
     # ─── Page: About ────────────────────────────────────────────────────────
 
     def _build_page_about(self):
@@ -1697,6 +1744,16 @@ class HwCodecGUI:
         self.args.encoder_count = enc
         self.args.decoder_count = dec
 
+        # Build device_ids dict from settings Spinboxes
+        device_ids = {}
+        for attr_name, var in self._device_id_vars.items():
+            api_name = attr_name.replace("_device_id", "")
+            try:
+                device_ids[api_name] = int(var.get())
+            except (ValueError, TypeError):
+                device_ids[api_name] = 0
+        self._device_ids = device_ids
+
         self.stop_requested = False
         self.running = True
         self.start_button.set_text("■  Stop")
@@ -1737,6 +1794,7 @@ class HwCodecGUI:
 
     def run_tests_thread(self):
         temp_dir = prepare_temp_dir("GUI")
+        device_ids = getattr(self, "_device_ids", {})
 
         self._set_status("Checking FFmpeg codec support...", ACCENT)
         print("\nChecking FFmpeg codec support...")
@@ -1778,7 +1836,7 @@ class HwCodecGUI:
                         encoder_results[title][res_name] = ("skipped", "This codec is not supported by current FFmpeg version")
                     continue
                 for res_name, res_size in RESOLUTIONS.items():
-                    enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False))
+                    enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False, device_ids))
 
         with ThreadPoolExecutor(max_workers=self.args.encoder_count) as executor:
             futures = [executor.submit(_run_encoder_test_single, t) for t in enc_tasks]
@@ -1805,7 +1863,7 @@ class HwCodecGUI:
                         decoder_results[title][res_name] = "skipped"
                     continue
                 for res_name, res_size in RESOLUTIONS.items():
-                    dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False))
+                    dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False, device_ids))
 
         with ThreadPoolExecutor(max_workers=self.args.decoder_count) as executor:
             futures = [executor.submit(_run_decoder_test_single, t) for t in dec_tasks]
@@ -1833,7 +1891,7 @@ class HwCodecGUI:
                         bd_encoder_results[title][key] = "skipped"
                     continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                    bd_enc_tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, temp_dir, False))
+                    bd_enc_tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, temp_dir, False, device_ids))
 
         with ThreadPoolExecutor(max_workers=self.args.encoder_count) as executor:
             futures = [executor.submit(_run_encoder_bitdepth_test, t) for t in bd_enc_tasks]
@@ -1861,7 +1919,7 @@ class HwCodecGUI:
                         bd_decoder_results[title][key] = ("skipped", "This codec is not supported by current FFmpeg version")
                     continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                    bd_dec_tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, temp_dir, False))
+                    bd_dec_tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, temp_dir, False, device_ids))
 
         with ThreadPoolExecutor(max_workers=self.args.decoder_count) as executor:
             futures = [executor.submit(_run_decoder_bitdepth_test, t) for t in bd_dec_tasks]

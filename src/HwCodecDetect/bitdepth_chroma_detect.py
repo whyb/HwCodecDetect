@@ -28,6 +28,7 @@ from .utils import (
     print_codec_support_report,
     format_verbose_log,
     get_ffmpeg_path,
+    get_hw_init_args,
 )
 
 init(autoreset=True)
@@ -35,7 +36,7 @@ init(autoreset=True)
 
 def _run_encoder_bitdepth_test(test_data):
     """Tests encoder support for a specific pixel format."""
-    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders, colorful = test_data
+    codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders, colorful, device_ids = test_data
 
     # Skip unsupported encoders
     if encoder in unsupported_encoders:
@@ -47,6 +48,7 @@ def _run_encoder_bitdepth_test(test_data):
     output_file = os.path.join(test_dir, f"{encoder}_{pix_fmt}{file_ext}")
 
     out_pix_fmt = get_out_pix_fmt(bit_depth, chroma)
+    hw_init_args = get_hw_init_args(encoder, device_ids)
 
     if "vulkan" in encoder:
         # Vulkan hwupload only accepts semi-planar HW-friendly formats
@@ -60,7 +62,7 @@ def _run_encoder_bitdepth_test(test_data):
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
@@ -74,7 +76,7 @@ def _run_encoder_bitdepth_test(test_data):
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
-            "-init_hw_device", "d3d12va:0",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
@@ -88,6 +90,7 @@ def _run_encoder_bitdepth_test(test_data):
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={BITDEPTH_CHROMA_RESOLUTION}:d=1",
             "-frames:v", "1",
@@ -120,12 +123,14 @@ def _run_encoder_bitdepth_test(test_data):
     return title, pix_fmt, bit_depth, chroma, status
 
 
-def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_encoders=None, colorful=False):
+def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_encoders=None, colorful=False, device_ids=None):
     """Tests encoder support for various pixel formats."""
     results = defaultdict(dict)
 
     if unsupported_encoders is None:
         unsupported_encoders = set()
+    if device_ids is None:
+        device_ids = {}
 
     if colorful:
         from .utils import COLORFUL as C
@@ -137,7 +142,7 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_enco
     for codec, info in ENCODERS.items():
         for encoder in info['hw_encoders']:
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders, colorful))
+                tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_encoders, colorful, device_ids))
 
     stty_cfg = get_stty_cfg()
     try:
@@ -161,7 +166,7 @@ def _run_encoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_enco
 
 def _run_decoder_bitdepth_test(test_data):
     """Tests decoder support for a specific pixel format."""
-    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders, colorful = test_data
+    codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders, colorful, device_ids = test_data
 
     # Skip unsupported decoders
     if hw_decoder in unsupported_decoders:
@@ -185,10 +190,11 @@ def _run_decoder_bitdepth_test(test_data):
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, pix_fmt, bit_depth, chroma, "skipped"
 
+    hw_init_args = get_hw_init_args(hw_decoder, device_ids)
     if "vulkan" in hw_decoder:
         command = [
             ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
             "-i", test_file,
@@ -204,6 +210,7 @@ def _run_decoder_bitdepth_test(test_data):
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"]:
         command = [
             ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
+            *hw_init_args,
             "-hwaccel", hw_decoder, "-i", test_file,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -229,12 +236,14 @@ def _run_decoder_bitdepth_test(test_data):
     return title, pix_fmt, bit_depth, chroma, status
 
 
-def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_decoders=None, colorful=False):
+def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_decoders=None, colorful=False, device_ids=None):
     """Tests decoder support for various pixel formats."""
     results = defaultdict(dict)
 
     if unsupported_decoders is None:
         unsupported_decoders = set()
+    if device_ids is None:
+        device_ids = {}
 
     if colorful:
         from .utils import COLORFUL as C
@@ -246,7 +255,7 @@ def _run_decoder_bitdepth_tests(test_dir, max_workers, verbose, unsupported_deco
     for codec, info in DECODERS.items():
         for hw_decoder in info['hw_decoders']:
             for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
-                tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders, colorful))
+                tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, test_dir, verbose, unsupported_decoders, colorful, device_ids))
 
     stty_cfg = get_stty_cfg()
     try:
@@ -389,7 +398,7 @@ def _print_colorful_bd_table(results, titles, header_text, format_columns, col_w
     print(bot)
 
 
-def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose, colorful=False):
+def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose, colorful=False, device_ids=None):
     """Run all bit-depth and chroma tests and return results."""
     import shutil
     temp_dir = prepare_temp_dir("BitDepth")
@@ -403,8 +412,8 @@ def run_bitdepth_chroma_tests(encoder_count, decoder_count, verbose, colorful=Fa
     unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
     print_codec_support_report(unsupported_encoders, unsupported_decoders, colorful)
 
-    encoder_results = _run_encoder_bitdepth_tests(temp_dir, encoder_count, verbose, unsupported_encoders, colorful)
-    decoder_results = _run_decoder_bitdepth_tests(temp_dir, decoder_count, verbose, unsupported_decoders, colorful)
+    encoder_results = _run_encoder_bitdepth_tests(temp_dir, encoder_count, verbose, unsupported_encoders, colorful, device_ids)
+    decoder_results = _run_decoder_bitdepth_tests(temp_dir, decoder_count, verbose, unsupported_decoders, colorful, device_ids)
 
     # Clean up
     shutil.rmtree(temp_dir)

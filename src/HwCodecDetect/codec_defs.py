@@ -138,6 +138,26 @@ ALL_CODECS = {
     **{k: v for k, v in ENCODERS.items() if k not in DECODERS}
 }
 
+# Hardware device initialization format strings
+# Key: API name found in encoder/decoder name (matched via `in` operator)
+# Value: format string for -init_hw_device with {id} placeholder, or None for special handling
+HW_DEVICE_INIT = {
+    "vulkan": "vulkan=vk:{id}",
+    "d3d12va": "d3d12va:{id}",
+    "dxva2": "dxva2:{id}",
+    "d3d11va": "d3d11va:{id}",
+    "nvenc": None,  # NVEnc uses -hwaccel_device + -init_hw_device cuda
+}
+
+# Default device IDs for each hardware API (0 = first device)
+HW_DEVICE_IDS = {
+    "vulkan": 0,
+    "d3d12va": 0,
+    "dxva2": 0,
+    "d3d11va": 0,
+    "nvenc": 0,
+}
+
 # Fixed resolution for bit-depth and chroma tests
 BITDEPTH_CHROMA_RESOLUTION = "1280x720"
 

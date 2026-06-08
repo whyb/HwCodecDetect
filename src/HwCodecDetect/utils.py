@@ -452,6 +452,30 @@ def get_out_pix_fmt(bit_depth, chroma):
 
 
 # ---------------------------------------------------------------------------
+# Hardware device initialization helpers
+# ---------------------------------------------------------------------------
+
+def get_hw_init_args(encoder_name, device_ids=None):
+    """Get -init_hw_device (and related) args for a given encoder/decoder name.
+
+    Returns a list of args to insert into the ffmpeg command, or an empty list
+    if the hardware API does not need explicit device initialization.
+    """
+    from .codec_defs import HW_DEVICE_INIT, HW_DEVICE_IDS
+    if device_ids is None:
+        device_ids = HW_DEVICE_IDS
+    for api_name, fmt in HW_DEVICE_INIT.items():
+        if api_name in encoder_name:
+            device_id = device_ids.get(api_name, 0)
+            if api_name == "nvenc":
+                # NVEnc: use -hwaccel_device for GPU selection + -init_hw_device cuda
+                return ["-hwaccel_device", str(device_id), "-init_hw_device", "cuda"]
+            elif fmt is not None:
+                return ["-init_hw_device", fmt.format(id=device_id)]
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Resource / temp directory helpers
 # ---------------------------------------------------------------------------
 

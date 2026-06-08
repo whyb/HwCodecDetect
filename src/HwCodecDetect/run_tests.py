@@ -12,7 +12,7 @@ from .utils import (
     check_codec_support, get_stty_cfg, set_stty_cfg,
     run_ffmpeg_command, get_display_width, get_file_extension,
     prepare_temp_dir, print_codec_support_report, format_verbose_log,
-    get_ffmpeg_path, set_ffmpeg_path,
+    get_ffmpeg_path, set_ffmpeg_path, get_hw_init_args,
 )
 from colorama import init, Fore, Style
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -126,7 +126,7 @@ if available_memory > 0:
 
 def _run_encoder_test_single(test_data):
     """Runs a single encoder test and returns the result."""
-    codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful = test_data
+    codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful, device_ids = test_data
 
     # Skip unsupported encoders
     if encoder in unsupported_encoders:
@@ -136,13 +136,14 @@ def _run_encoder_test_single(test_data):
     ffmpeg = get_ffmpeg_path()
     file_ext = get_file_extension(codec)
     output_file = os.path.join(test_dir, f"{encoder}_{res_name}{file_ext}")
+    hw_init_args = get_hw_init_args(encoder, device_ids)
     if "vulkan" in encoder:
         command = [
             ffmpeg,
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
@@ -156,7 +157,7 @@ def _run_encoder_test_single(test_data):
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
-            "-init_hw_device", "d3d12va:0",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
@@ -170,6 +171,7 @@ def _run_encoder_test_single(test_data):
             "-loglevel", "quiet",
             "-hide_banner",
             "-y",
+            *hw_init_args,
             "-f", "lavfi",
             "-i", f"color=white:s={res_size}:d=1",
             "-frames:v", "1",
@@ -202,12 +204,14 @@ def _run_encoder_test_single(test_data):
     return title, res_name, status
 
 
-def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None, colorful=False):
+def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None, colorful=False, device_ids=None):
     """Runs hardware encoder tests using a thread pool."""
     results = defaultdict(dict)
 
     if unsupported_encoders is None:
         unsupported_encoders = set()
+    if device_ids is None:
+        device_ids = {}
 
     if colorful:
         from .utils import COLORFUL as C
@@ -219,7 +223,7 @@ def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None
     for codec, info in ENCODERS.items():
         for encoder in info['hw_encoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful))
+                tasks.append((codec, encoder, res_name, res_size, test_dir, verbose, unsupported_encoders, colorful, device_ids))
 
     stty_cfg = get_stty_cfg()
     try:
@@ -239,7 +243,7 @@ def _run_encoder_tests(test_dir, max_workers, verbose, unsupported_encoders=None
 
 def _run_decoder_test_single(test_data):
     """Runs a single decoder test and returns the result."""
-    codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful = test_data
+    codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful, device_ids = test_data
 
     # Skip unsupported decoders
     if hw_decoder in unsupported_decoders:
@@ -272,10 +276,11 @@ def _run_decoder_test_single(test_data):
             title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
             return title, res_name, "skipped"
 
+    hw_init_args = get_hw_init_args(hw_decoder, device_ids)
     if "vulkan" in hw_decoder:
         command = [
             ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
-            "-init_hw_device", "vulkan=vk:0",
+            *hw_init_args,
             "-hwaccel", "vulkan",
             "-hwaccel_output_format", "vulkan",
             "-i", test_file_path,
@@ -291,6 +296,7 @@ def _run_decoder_test_single(test_data):
     elif hw_decoder in ["dxva2", "d3d11va", "d3d12va"] and codec in ["h264", "h265", "vp8", "vp9", "av1", "mjpeg", "mpeg1", "mpeg2", "mpeg4"]:
         command = [
             ffmpeg, "-loglevel", "quiet", "-hide_banner", "-y",
+            *hw_init_args,
             "-hwaccel", hw_decoder, "-i", test_file_path,
             "-c:v", "libx264", "-preset", "ultrafast",
             "-f", "null", "null",
@@ -316,12 +322,14 @@ def _run_decoder_test_single(test_data):
     return title, res_name, status
 
 
-def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None, colorful=False):
+def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None, colorful=False, device_ids=None):
     """Runs hardware decoder tests using a thread pool."""
     results = defaultdict(dict)
 
     if unsupported_decoders is None:
         unsupported_decoders = set()
+    if device_ids is None:
+        device_ids = {}
 
     if colorful:
         from .utils import COLORFUL as C
@@ -333,7 +341,7 @@ def _run_decoder_tests(test_dir, max_workers, verbose, unsupported_decoders=None
     for codec, info in DECODERS.items():
         for hw_decoder in info['hw_decoders']:
             for res_name, res_size in RESOLUTIONS.items():
-                tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful))
+                tasks.append((codec, hw_decoder, res_name, res_size, test_dir, verbose, unsupported_decoders, colorful, device_ids))
 
     stty_cfg = get_stty_cfg()
     try:
@@ -500,8 +508,15 @@ def run_all_tests(args):
 
     temp_dir = prepare_temp_dir("cli")
 
-    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose, unsupported_encoders, colorful)
-    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose, unsupported_decoders, colorful)
+    # Build device_ids dict from CLI args
+    device_ids = {}
+    for api in ("vulkan", "d3d12va", "dxva2", "d3d11va", "nvenc"):
+        val = getattr(args, f"{api}_device_id", None)
+        if val is not None:
+            device_ids[api] = val
+
+    encoder_results = _run_encoder_tests(temp_dir, args.encoder_count, args.verbose, unsupported_encoders, colorful, device_ids)
+    decoder_results = _run_decoder_tests(temp_dir, args.decoder_count, args.verbose, unsupported_decoders, colorful, device_ids)
 
     all_results = {}
     all_results.update(encoder_results)
@@ -520,7 +535,7 @@ def run_all_tests(args):
             print("Starting Bit-depth and Chroma Subsampling Detection...")
             print("=" * 60)
         bd_encoder_results, bd_decoder_results = run_bitdepth_chroma_tests(
-            args.encoder_count, args.decoder_count, args.verbose, colorful
+            args.encoder_count, args.decoder_count, args.verbose, colorful, device_ids
         )
         print_bitdepth_chroma_results(bd_encoder_results, bd_decoder_results, colorful)
 
@@ -633,6 +648,37 @@ def main():
         help='Absolute path to the FFmpeg executable to use for all tests.\n'
              'Overrides FFMPEG_PATH env var and PATH lookup.\n'
              'If not set, falls back to FFMPEG_PATH env var, then PATH.'
+    )
+
+    parser.add_argument(
+        '--vulkan-device-id',
+        type=int,
+        default=None,
+        help='Vulkan device index for hardware init (default: 0)'
+    )
+    parser.add_argument(
+        '--d3d12va-device-id',
+        type=int,
+        default=None,
+        help='D3D12VA device index for hardware init (default: 0)'
+    )
+    parser.add_argument(
+        '--dxva2-device-id',
+        type=int,
+        default=None,
+        help='DXVA2 device index for hardware init (default: 0)'
+    )
+    parser.add_argument(
+        '--d3d11va-device-id',
+        type=int,
+        default=None,
+        help='D3D11VA device index for hardware init (default: 0)'
+    )
+    parser.add_argument(
+        '--nvenc-device-id',
+        type=int,
+        default=None,
+        help='NVEnc CUDA device index for hardware init (default: 0)'
     )
 
     args = parser.parse_args()
