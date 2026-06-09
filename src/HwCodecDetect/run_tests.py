@@ -691,7 +691,27 @@ def main():
 
     # Check --ui flag OR environment variable (for CI GUI builds)
     if args.ui or os.environ.get("HWCODECDETECT_GUI") == "1":
-        from .gui import launch_gui
+        try:
+            from .gui import launch_gui
+        except ImportError as e:
+            if "tkinter" in str(e).lower() or "_tkinter" in str(e).lower():
+                print("\n  Error: tkinter is not installed. GUI mode requires tkinter.\n", file=sys.stderr)
+                system = platform.system()
+                if system == "Linux":
+                    print("  Install it via your package manager:", file=sys.stderr)
+                    print("    Ubuntu/Debian:  sudo apt-get install python3-tk", file=sys.stderr)
+                    print("    Fedora/RHEL:    sudo dnf install python3-tkinter", file=sys.stderr)
+                    print("    Arch Linux:     sudo pacman -S tk", file=sys.stderr)
+                    print("    openSUSE:       sudo zypper install python3-tk", file=sys.stderr)
+                elif system == "Darwin":
+                    print("  Reinstall Python from python.org with tcl/tk support,", file=sys.stderr)
+                    print("  or install via Homebrew:  brew install python-tk@3", file=sys.stderr)
+                else:
+                    print("  Reinstall Python from python.org and ensure 'tcl/tk and IDLE'", file=sys.stderr)
+                    print("  is checked in the installer.", file=sys.stderr)
+                print(f"\n  Alternatively, run without --ui for CLI mode.\n", file=sys.stderr)
+                sys.exit(1)
+            raise
         launch_gui(args)
         return
 
