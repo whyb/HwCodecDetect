@@ -9,7 +9,7 @@
     <a href="https://pypi.org/project/hwcodecdetect">
         <img src="https://badgen.net/pypi/v/hwcodecdetect?color=yellow" />
     </a>
-    <a href="https://pypi.org/project/hwcodecdetect">
+    <a href="https://pypistats.org/packages/hwcodecdetect">
         <img src="https://static.pepy.tech/badge/hwcodecdetect" />
     </a>
     <a href="https://deepwiki.com/whyb/HwCodecDetect">
