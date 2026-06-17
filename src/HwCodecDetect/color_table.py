@@ -39,6 +39,8 @@ class ColorTable(tk.Frame):
                       "status": "succeeded", "error_msg": ""}},
         ], row_tag="row_even")
         table.on_cell_click(callback)
+        table.update_cell(row_idx, col_idx, text="●", fg="#ef4444",
+                          meta={"status": "failed", ...})
     """
 
     # ─── Construction ─────────────────────────────────────────────────────
@@ -250,6 +252,29 @@ class ColorTable(tk.Frame):
                 row_data["frame"].destroy()
         self._rows.clear()
         self._cell_meta.clear()
+
+    def update_cell(self, row_idx, col_idx, text=None, fg=None, meta=None):
+        """
+        Update the display and metadata of a single cell.
+
+        Args:
+            row_idx: zero-based row index (0 = first data row).
+            col_idx: zero-based column index (0 = first data column).
+            text: new cell text, or ``None`` to keep unchanged.
+            fg: new foreground colour, or ``None`` to keep unchanged.
+            meta: new metadata dict stored for click callbacks.
+                  If provided, **replaces** any existing meta for this cell.
+        """
+        if row_idx < len(self._rows) and col_idx < len(self._rows[row_idx]["labels"]):
+            lbl = self._rows[row_idx]["labels"][col_idx]
+            if not lbl.winfo_exists():
+                return
+            if text is not None:
+                lbl.configure(text=text)
+            if fg is not None:
+                lbl.configure(fg=fg)
+            if meta is not None:
+                self._cell_meta[(row_idx, col_idx)] = meta
 
     def insert_row(self, cells, row_tag="row_even"):
         """

@@ -651,6 +651,13 @@ class HwCodecGUI:
         self._nav_buttons = {}
         self._ffmpeg_active_path = None
 
+        # Incremental table update state
+        self._tables = {}          # "dec_res" -> ColorTable instance
+        self._table_row_maps = {}  # "dec_res" -> {title: row_idx}
+        self._table_col_maps = {}  # "dec_res" -> {col_name: col_idx}
+        self._cell_update_buffers = {}  # "dec_res" -> [(title, col_name, status, error_msg), ...]
+        self._current_codec_tab = None
+
         # Apply CLI --ffmpeg-path if provided (highest priority)
         ffmpeg_path_arg = getattr(args, 'ffmpeg_path', None)
         if ffmpeg_path_arg:
@@ -880,11 +887,11 @@ class HwCodecGUI:
         self._table_container = tk.Frame(page, bg=BG_ROOT)
         self._table_container.pack(fill="both", expand=True, padx=24, pady=(0, 16))
 
-        # Create tables
-        self.table_dec_res = self._create_table(self._table_container)
-        self.table_enc_res = self._create_table(self._table_container)
-        self.table_dec_bd  = self._create_table(self._table_container)
-        self.table_enc_bd  = self._create_table(self._table_container)
+        # Create tables (pass table_key so self._tables is populated)
+        self.table_dec_res = self._create_table(self._table_container, table_key="dec_res")
+        self.table_enc_res = self._create_table(self._table_container, table_key="enc_res")
+        self.table_dec_bd  = self._create_table(self._table_container, table_key="dec_bd")
+        self.table_enc_bd  = self._create_table(self._table_container, table_key="enc_bd")
 
         self._table_frames = {
             "dec_res": self.table_dec_res[0],
@@ -906,6 +913,8 @@ class HwCodecGUI:
                 frame.pack(fill="both", expand=True)
             else:
                 frame.pack_forget()
+        # Flush any buffered updates for this tab
+        self._flush_cell_buffer(key)
 
     # ─── Page: FFmpeg Environment ────────────────────────────────────────────
 
@@ -1620,13 +1629,15 @@ class HwCodecGUI:
 
     # ─── ColorTable ───────────────────────────────────────────────────────
 
-    def _create_table(self, parent):
+    def _create_table(self, parent, table_key=None):
         """Returns (container_frame, ColorTable) for a table."""
         container = tk.Frame(parent, bg=BG_ROOT)
         table = ColorTable(container)
         table.pack(fill="both", expand=True)
         container.grid_propagate(False)
         table.on_cell_click(self._on_color_table_cell_click)
+        if table_key:
+            self._tables[table_key] = table
         return (container, table)
 
     def _configure_resolution_columns(self, table):
@@ -1792,6 +1803,152 @@ class HwCodecGUI:
             self.status_dot.set_status(color)
         self.root.after(0, _inner)
 
+    # ─── Incremental Table Helpers ────────────────────────────────────────────
+
+    def _prebuild_resolution_table(self, table_key):
+        """
+        Pre-build all rows for a resolution table with pending cells.
+        Also populates self._table_row_maps[table_key] and self._table_col_maps[table_key].
+        """
+        table = self._tables.get(table_key)
+        if not table:
+            return
+        is_enc = "enc" in table_key
+
+        # Determine titles
+        titles = []
+        if is_enc:
+            for codec, info in ENCODERS.items():
+                for encoder in info["hw_encoders"]:
+                    title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    if title not in titles:
+                        titles.append(title)
+        else:
+            for codec, info in DECODERS.items():
+                for hw_decoder in info["hw_decoders"]:
+                    title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    if title not in titles:
+                        titles.append(title)
+        titles.sort()
+
+        col_names = list(RESOLUTIONS.keys())
+        self._table_row_maps[table_key] = {}
+        self._table_col_maps[table_key] = {name: idx + 1 for idx, name in enumerate(col_names)}
+
+        self._configure_resolution_columns(table)
+        table.clear()
+        for idx, title in enumerate(titles):
+            row_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            cells = [{"text": title, "fg": TEXT_PRIMARY}]
+            for col_name in col_names:
+                cells.append({
+                    "text": "●",
+                    "fg": TEXT_DIM,
+                    "meta": {"codec_name": title, "col_name": col_name,
+                             "status": "pending", "error_msg": ""},
+                })
+            table.insert_row(cells, row_tag=row_tag)
+            self._table_row_maps[table_key][title] = idx
+
+    def _prebuild_bitdepth_table(self, table_key):
+        """
+        Pre-build all rows for a bitdepth table with pending cells.
+        """
+        table = self._tables.get(table_key)
+        if not table:
+            return
+        is_enc = "enc" in table_key
+
+        titles = []
+        if is_enc:
+            for codec, info in BD_ENCODERS.items():
+                for encoder in info["hw_encoders"]:
+                    title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
+                    if title not in titles:
+                        titles.append(title)
+        else:
+            for codec, info in BD_DECODERS.items():
+                for hw_decoder in info["hw_decoders"]:
+                    title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
+                    if title not in titles:
+                        titles.append(title)
+        titles.sort()
+
+        col_names = [
+            "8-bit 4:2:0", "8-bit 4:2:2", "8-bit 4:4:4",
+            "10-bit 4:2:0", "10-bit 4:2:2", "10-bit 4:4:4",
+            "12-bit 4:2:0", "12-bit 4:2:2", "12-bit 4:4:4",
+        ]
+        self._table_row_maps[table_key] = {}
+        self._table_col_maps[table_key] = {name: idx + 1 for idx, name in enumerate(col_names)}
+
+        self._configure_bitdepth_columns(table)
+        table.clear()
+        for idx, title in enumerate(titles):
+            row_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            cells = [{"text": title, "fg": TEXT_PRIMARY}]
+            for col_name in col_names:
+                cells.append({
+                    "text": "●",
+                    "fg": TEXT_DIM,
+                    "meta": {"codec_name": title, "col_name": col_name,
+                             "status": "pending", "error_msg": ""},
+                })
+            table.insert_row(cells, row_tag=row_tag)
+            self._table_row_maps[table_key][title] = idx
+
+    def _update_single_cell(self, table_key, title, col_name, status, error_msg):
+        """Thread-safe: update a single cell — either apply immediately (if visible) or buffer."""
+        # If this table is not the currently visible tab, buffer the update
+        if table_key != self._current_codec_tab:
+            buf = self._cell_update_buffers.setdefault(table_key, [])
+            buf.append((title, col_name, status, error_msg))
+            return
+
+        row_map = self._table_row_maps.get(table_key, {})
+        col_map = self._table_col_maps.get(table_key, {})
+        row_idx = row_map.get(title)
+        col_idx = col_map.get(col_name)
+        if row_idx is None or col_idx is None:
+            return
+        table = self._tables.get(table_key)
+        if not table:
+            return
+        color = GREEN if status == "succeeded" else RED if status == "failed" else TEXT_DIM
+        table.update_cell(
+            row_idx, col_idx,
+            text="●",
+            fg=color,
+            meta={"codec_name": title, "col_name": col_name,
+                  "status": status, "error_msg": error_msg},
+        )
+
+    def _flush_cell_buffer(self, table_key):
+        """Apply all buffered cell updates for the given table."""
+        buf = self._cell_update_buffers.pop(table_key, [])
+        if not buf:
+            return
+        row_map = self._table_row_maps.get(table_key, {})
+        col_map = self._table_col_maps.get(table_key, {})
+        table = self._tables.get(table_key)
+        if not table:
+            return
+        for title, col_name, status, error_msg in buf:
+            row_idx = row_map.get(title)
+            col_idx = col_map.get(col_name)
+            if row_idx is None or col_idx is None:
+                continue
+            color = GREEN if status == "succeeded" else RED if status == "failed" else TEXT_DIM
+            table.update_cell(
+                row_idx, col_idx,
+                text="●",
+                fg=color,
+                meta={"codec_name": title, "col_name": col_name,
+                      "status": status, "error_msg": error_msg},
+            )
+
+    # ─── Test Flow ───────────────────────────────────────────────────────────
+
     def run_tests_thread(self):
         temp_dir = prepare_temp_dir("GUI")
         device_ids = getattr(self, "_device_ids", {})
@@ -1801,10 +1958,11 @@ class HwCodecGUI:
         unsupported_encoders, unsupported_decoders = check_codec_support(ENCODERS, DECODERS)
         print_codec_support_report(unsupported_encoders, unsupported_decoders)
 
-        encoder_results = defaultdict(dict)
-        decoder_results = defaultdict(dict)
-        bd_encoder_results = defaultdict(dict)
-        bd_decoder_results = defaultdict(dict)
+        # Pre-build all tables with pending cells
+        self.root.after(0, lambda: self._prebuild_resolution_table("enc_res"))
+        self.root.after(0, lambda: self._prebuild_resolution_table("dec_res"))
+        self.root.after(0, lambda: self._prebuild_bitdepth_table("enc_bd"))
+        self.root.after(0, lambda: self._prebuild_bitdepth_table("dec_bd"))
 
         total_enc_tasks = sum(
             len([e for e in info["hw_encoders"] if e not in unsupported_encoders]) * len(RESOLUTIONS)
@@ -1825,6 +1983,10 @@ class HwCodecGUI:
         total_tasks = total_enc_tasks + total_dec_tasks + total_bd_enc_tasks + total_bd_dec_tasks
         done_tasks = 0
 
+        # Small delay to let the pre-built tables render
+        import time as _time
+        _time.sleep(0.1)
+
         # ── Phase 1: Resolution Encoder Tests ──
         self._set_status("Testing encoders (resolution)...", ACCENT)
         enc_tasks = []
@@ -1833,7 +1995,9 @@ class HwCodecGUI:
                 if encoder in unsupported_encoders:
                     title = ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
                     for res_name in RESOLUTIONS.keys():
-                        encoder_results[title][res_name] = ("skipped", "This codec is not supported by current FFmpeg version")
+                        self.root.after(0, lambda t=title, r=res_name: self._update_single_cell(
+                            "enc_res", t, r, "skipped",
+                            "This codec is not supported by current FFmpeg version"))
                     continue
                 for res_name, res_size in RESOLUTIONS.items():
                     enc_tasks.append((codec, encoder, res_name, res_size, temp_dir, False, device_ids))
@@ -1846,8 +2010,9 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, res_name, status, error_msg = f.result()
-                encoder_results[title][res_name] = (status, error_msg)
+                title, rn, status, error_msg = f.result()
+                self.root.after(0, lambda t=title, rn=rn, s=status, e=error_msg: self._update_single_cell(
+                    "enc_res", t, rn, s, e))
                 done_tasks += 1
                 pct = int(done_tasks * 100 / total_tasks)
                 self._update_progress(pct, "Encoder Resolution")
@@ -1860,7 +2025,9 @@ class HwCodecGUI:
                 if hw_decoder in unsupported_decoders:
                     title = DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
                     for res_name in RESOLUTIONS.keys():
-                        decoder_results[title][res_name] = "skipped"
+                        self.root.after(0, lambda t=title, r=res_name: self._update_single_cell(
+                            "dec_res", t, r, "skipped",
+                            "This codec is not supported by current FFmpeg version"))
                     continue
                 for res_name, res_size in RESOLUTIONS.items():
                     dec_tasks.append((codec, hw_decoder, res_name, res_size, temp_dir, False, device_ids))
@@ -1873,8 +2040,9 @@ class HwCodecGUI:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                     self._finish_run(cancelled=True)
                     return
-                title, res_name, status, error_msg = f.result()
-                decoder_results[title][res_name] = (status, error_msg)
+                title, rn, status, error_msg = f.result()
+                self.root.after(0, lambda t=title, rn=rn, s=status, e=error_msg: self._update_single_cell(
+                    "dec_res", t, rn, s, e))
                 done_tasks += 1
                 pct = int(done_tasks * 100 / total_tasks)
                 self._update_progress(pct, "Decoder Resolution")
@@ -1888,7 +2056,9 @@ class HwCodecGUI:
                     title = BD_ENCODER_TITLES.get((encoder, codec), f"{encoder.upper()} Encoder:")
                     for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                         key = f"{bit_depth}-bit {chroma}"
-                        bd_encoder_results[title][key] = "skipped"
+                        self.root.after(0, lambda t=title, k=key: self._update_single_cell(
+                            "enc_bd", t, k, "skipped",
+                            "This codec is not supported by current FFmpeg version"))
                     continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_enc_tasks.append((codec, encoder, pix_fmt, bit_depth, chroma, temp_dir, False, device_ids))
@@ -1902,7 +2072,8 @@ class HwCodecGUI:
                     self._finish_run(cancelled=True)
                     return
                 title, key, status, error_msg = f.result()
-                bd_encoder_results[title][key] = (status, error_msg)
+                self.root.after(0, lambda t=title, k=key, s=status, e=error_msg: self._update_single_cell(
+                    "enc_bd", t, k, s, e))
                 done_tasks += 1
                 pct = int(done_tasks * 100 / total_tasks)
                 self._update_progress(pct, "Encoder Bit-depth")
@@ -1916,7 +2087,9 @@ class HwCodecGUI:
                     title = BD_DECODER_TITLES.get((hw_decoder, codec), f"{hw_decoder.upper()} Decoder:")
                     for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                         key = f"{bit_depth}-bit {chroma}"
-                        bd_decoder_results[title][key] = ("skipped", "This codec is not supported by current FFmpeg version")
+                        self.root.after(0, lambda t=title, k=key: self._update_single_cell(
+                            "dec_bd", t, k, "skipped",
+                            "This codec is not supported by current FFmpeg version"))
                     continue
                 for pix_fmt, bit_depth, chroma, desc in PIXEL_FORMATS:
                     bd_dec_tasks.append((codec, hw_decoder, pix_fmt, bit_depth, chroma, temp_dir, False, device_ids))
@@ -1930,25 +2103,14 @@ class HwCodecGUI:
                     self._finish_run(cancelled=True)
                     return
                 title, key, status, error_msg = f.result()
-                bd_decoder_results[title][key] = (status, error_msg)
+                self.root.after(0, lambda t=title, k=key, s=status, e=error_msg: self._update_single_cell(
+                    "dec_bd", t, k, s, e))
                 done_tasks += 1
                 pct = int(done_tasks * 100 / total_tasks)
                 self._update_progress(pct, "Decoder Bit-depth")
 
         shutil.rmtree(temp_dir, ignore_errors=True)
-
-        if not self.stop_requested:
-            self._configure_resolution_columns(self.table_enc_res[1])
-            self._configure_resolution_columns(self.table_dec_res[1])
-            self._configure_bitdepth_columns(self.table_enc_bd[1])
-            self._configure_bitdepth_columns(self.table_dec_bd[1])
-
-            self._update_resolution_table(self.table_enc_res[1], encoder_results, kind="Encoder")
-            self._update_resolution_table(self.table_dec_res[1], decoder_results, kind="Decoder")
-            self._update_bitdepth_table(self.table_enc_bd[1], bd_encoder_results, kind="Encoder")
-            self._update_bitdepth_table(self.table_dec_bd[1], bd_decoder_results, kind="Decoder")
-            self._update_progress(100, "Complete")
-
+        self.root.after(0, lambda: self._update_progress(100, "Complete"))
         self._finish_run(cancelled=self.stop_requested)
 
     def _finish_run(self, cancelled=False):
@@ -1976,6 +2138,9 @@ class HwCodecGUI:
         for table in (self.table_dec_res[1], self.table_enc_res[1],
                       self.table_dec_bd[1], self.table_enc_bd[1]):
             table.clear()
+        self._table_row_maps.clear()
+        self._table_col_maps.clear()
+        self._cell_update_buffers.clear()
 
     # ─── Cell Click / Error Popup ────────────────────────────────────────────
 
@@ -2078,91 +2243,6 @@ class HwCodecGUI:
         _FlatButton(btn_frame, text="Close", command=popup.destroy,
                     bg_color=BG_ELEVATED, hover_color=BG_HOVER, press_color=BORDER_LIGHT,
                     text_color=TEXT_PRIMARY, padx=20, pady=6).pack(side="right")
-
-    # ─── Table Update ────────────────────────────────────────────────────────
-
-    def _update_resolution_table(self, table, results, kind):
-        resolutions = list(RESOLUTIONS.keys())
-
-        def _inner():
-            table.clear()
-
-            filtered_titles = sorted(
-                [t for t in results.keys() if kind in t]
-            ) or sorted(results.keys())
-
-            for idx, title in enumerate(filtered_titles):
-                row_tag = "row_even" if idx % 2 == 0 else "row_odd"
-                cells = [{"text": title, "fg": TEXT_PRIMARY}]
-                for res in resolutions:
-                    result = results.get(title, {}).get(res, "skipped")
-                    if isinstance(result, tuple):
-                        status, error_msg = result
-                    else:
-                        status = result
-                        error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
-
-                    if status == "succeeded":
-                        color = GREEN
-                    elif status == "failed":
-                        color = RED
-                    else:
-                        color = TEXT_DIM
-
-                    cells.append({
-                        "text": "●",
-                        "fg": color,
-                        "meta": {"codec_name": title, "col_name": res,
-                                 "status": status, "error_msg": error_msg},
-                    })
-
-                table.insert_row(cells, row_tag=row_tag)
-
-        self.root.after(0, _inner)
-
-    def _update_bitdepth_table(self, table, results, kind):
-        format_columns = [
-            "8-bit 4:2:0", "8-bit 4:2:2", "8-bit 4:4:4",
-            "10-bit 4:2:0", "10-bit 4:2:2", "10-bit 4:4:4",
-            "12-bit 4:2:0", "12-bit 4:2:2", "12-bit 4:4:4",
-        ]
-
-        def _inner():
-            table.clear()
-
-            filtered_titles = sorted(
-                [t for t in results.keys() if kind in t]
-            ) or sorted(results.keys())
-
-            for idx, title in enumerate(filtered_titles):
-                row_tag = "row_even" if idx % 2 == 0 else "row_odd"
-                cells = [{"text": title, "fg": TEXT_PRIMARY}]
-                for col_name in format_columns:
-                    result = results.get(title, {}).get(col_name, "skipped")
-                    if isinstance(result, tuple):
-                        status, error_msg = result
-                    else:
-                        status = result
-                        error_msg = "This codec is not supported by current FFmpeg version" if status == "skipped" else "Unknown error"
-
-                    if status == "succeeded":
-                        color = GREEN
-                    elif status == "failed":
-                        color = RED
-                    else:
-                        color = TEXT_DIM
-
-                    cells.append({
-                        "text": "●",
-                        "fg": color,
-                        "meta": {"codec_name": title, "col_name": col_name,
-                                 "status": status, "error_msg": error_msg},
-                    })
-
-                table.insert_row(cells, row_tag=row_tag)
-
-        self.root.after(0, _inner)
-
 
 def launch_gui(args):
     """Launch the GUI application."""
