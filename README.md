@@ -162,4 +162,4 @@ Here are some possible results from a local test run:
 ![hwcodecdetect gui](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect_gui.gif)
 
 ## Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/chart?repos=whyb/HwCodecDetect&type=date&legend=top-left&sealed_token=8X609g9QEmMzR94Bxv5DDDN75JbluIzVsXViQ5PUqRW2qkCwqmSYiNTbQP2Gw5XNRUeyYnsfOKRu3OrhiK8EMnAn)](https://www.star-history.com/?repos=whyb%2FHwCodecDetect&type=date&legend=top-left)
