@@ -20,7 +20,7 @@ jobs:
     steps:
     - name: Download and extract FFmpeg
       run: |
-        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z" -OutFile "ffmpeg.7z"
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z" -OutFile "ffmpeg.7z"
         $ffmpegDir = "$env:USERPROFILE\ffmpeg"
         New-Item -ItemType Directory -Path $ffmpegDir -Force | Out-Null
         & "C:\Program Files\7-Zip\7z.exe" x "ffmpeg.7z" -o"$ffmpegDir" -y

@@ -614,17 +614,17 @@ def _windows_download_fallback():
         urls = [
             "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
             "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
-            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z",
         ]
     elif arch == "aarch64":
         urls = [
             "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl-shared.zip",
-            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z",
         ]
     elif bits == 32:
         urls = [
             "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win32-gpl-shared.zip",
-            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z",
         ]
 
     if not urls:
@@ -653,42 +653,77 @@ def _windows_download_fallback():
             # Extract
             try:
                 print("  Extracting...")
-                with zipfile.ZipFile(zip_path, "r") as zf:
-                    # Find the bin directory inside the zip
-                    bin_entries = [n for n in zf.namelist() if "/bin/ffmpeg.exe" in n or "\\bin\\ffmpeg.exe" in n]
-                    if bin_entries:
-                        # Extract entire bin folder content
-                        for entry in bin_entries:
-                            # Find the bin directory prefix
-                            idx = entry.lower().find("/bin/")
-                            if idx == -1:
-                                idx = entry.lower().find("\\bin\\")
-                            bin_prefix = entry[:idx + 5]  # include "bin/" or "bin\\"
+                is_7z = url.lower().endswith(".7z")
+
+                if is_7z:
+                    # --- 7z archive: use Windows built-in tar (libarchive) ---
+                    # Windows 10 17063+ / Windows 11 ship tar.exe that
+                    # natively handles .7z via libarchive.  Zero extra deps.
+                    result = _run_cmd(
+                        ["tar", "-xf", zip_path, "-C", tmp],
+                        timeout=180,
+                    )
+                    if result is None or result.returncode != 0:
+                        print(
+                            "  Failed to extract .7z with system tar"
+                            " (requires Windows 10 build 17063 or later).",
+                            file=sys.stderr,
+                        )
+                        continue
+
+                    # Locate the directory containing ffmpeg.exe
+                    bin_dir = None
+                    for root, _dirs, files in os.walk(tmp):
+                        if "ffmpeg.exe" in files:
+                            bin_dir = root
                             break
-                    else:
-                        # Fallback: extract all
-                        zf.extractall(tmp)
-                        # Search for ffmpeg.exe
-                        for root, dirs, files in os.walk(tmp):
-                            if "ffmpeg.exe" in files:
-                                bin_prefix = root + os.sep
+
+                    if not bin_dir:
+                        print("  Could not locate ffmpeg.exe in archive.", file=sys.stderr)
+                        continue
+
+                    # Copy everything from the bin/ folder into install_dir
+                    os.makedirs(install_dir, exist_ok=True)
+                    for fname in os.listdir(bin_dir):
+                        src = os.path.join(bin_dir, fname)
+                        if os.path.isfile(src):
+                            shutil.copy2(src, os.path.join(install_dir, fname))
+
+                else:
+                    # --- zip archive: use stdlib zipfile ----------------
+                    with zipfile.ZipFile(zip_path, "r") as zf:
+                        # Find the bin directory inside the zip
+                        bin_entries = [n for n in zf.namelist() if "/bin/ffmpeg.exe" in n or "\\bin\\ffmpeg.exe" in n]
+                        if bin_entries:
+                            for entry in bin_entries:
+                                idx = entry.lower().find("/bin/")
+                                if idx == -1:
+                                    idx = entry.lower().find("\\bin\\")
+                                bin_prefix = entry[:idx + 5]  # include "bin/" or "bin\\"
                                 break
                         else:
-                            print("  Could not locate ffmpeg.exe in archive.", file=sys.stderr)
-                            continue
+                            # Fallback: extract all, then search
+                            zf.extractall(tmp)
+                            for root, _dirs, files in os.walk(tmp):
+                                if "ffmpeg.exe" in files:
+                                    bin_prefix = root + os.sep
+                                    break
+                            else:
+                                print("  Could not locate ffmpeg.exe in archive.", file=sys.stderr)
+                                continue
 
-                    # Create install directory
-                    os.makedirs(install_dir, exist_ok=True)
+                        # Create install directory
+                        os.makedirs(install_dir, exist_ok=True)
 
-                    # Extract bin contents
-                    for entry in zf.namelist():
-                        if entry.startswith(bin_prefix) and not entry.endswith("/"):
-                            data = zf.read(entry)
-                            fname = os.path.basename(entry)
-                            if fname:
-                                target = os.path.join(install_dir, fname)
-                                with open(target, "wb") as f:
-                                    f.write(data)
+                        # Extract bin contents
+                        for entry in zf.namelist():
+                            if entry.startswith(bin_prefix) and not entry.endswith("/"):
+                                data = zf.read(entry)
+                                fname = os.path.basename(entry)
+                                if fname:
+                                    target = os.path.join(install_dir, fname)
+                                    with open(target, "wb") as f:
+                                        f.write(data)
 
             except (zipfile.BadZipFile, OSError) as e:
                 print(f"  Extraction failed: {e}", file=sys.stderr)

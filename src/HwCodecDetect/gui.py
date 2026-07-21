@@ -9,6 +9,7 @@ import shutil
 import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
+import tkinter.filedialog as filedialog
 from collections import defaultdict
 from tkinter import ttk
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -936,25 +937,95 @@ class HwCodecGUI:
             font=(FAMILY, 9), padx=12, pady=5)
         self._ffmpeg_refresh_btn.pack(side="right")
 
-        # Scrollable content
-        scroll_canvas = tk.Canvas(page, bg=BG_ROOT, highlightthickness=0, bd=0)
-        scroll_bar = tk.Scrollbar(page, orient="vertical", command=scroll_canvas.yview)
+        # Scrollable content (styled to match Codec Detection tables)
+        # Setup ttk scrollbar styles for dark theme
+        ffmpeg_style = ttk.Style()
+        if ffmpeg_style.theme_use() not in ("clam", "alt"):
+            ffmpeg_style.theme_use("clam")
+
+        ffmpeg_style.configure(
+            "FFmpeg.Vertical.TScrollbar",
+            troughcolor=BG_SURFACE, background=BG_ELEVATED,
+            bordercolor=BG_SURFACE, arrowcolor=BG_SURFACE,
+            relief="flat", width=8)
+        ffmpeg_style.map(
+            "FFmpeg.Vertical.TScrollbar",
+            background=[("active", BG_HOVER), ("!active", BG_ELEVATED),
+                        ("disabled", BG_SURFACE)],
+            arrowcolor=[("active", BG_HOVER), ("disabled", BG_SURFACE)])
+        ffmpeg_style.layout(
+            "FFmpeg.Vertical.TScrollbar",
+            [("FFmpeg.Vertical.Scrollbar.trough",
+              {"sticky": "ns",
+               "children": [("FFmpeg.Vertical.Scrollbar.thumb",
+                             {"expand": "1", "sticky": "nswe"})]})])
+
+        ffmpeg_style.configure(
+            "FFmpeg.Horizontal.TScrollbar",
+            troughcolor=BG_SURFACE, background=BG_ELEVATED,
+            bordercolor=BG_SURFACE, arrowcolor=BG_SURFACE,
+            relief="flat", width=8)
+        ffmpeg_style.map(
+            "FFmpeg.Horizontal.TScrollbar",
+            background=[("active", BG_HOVER), ("!active", BG_ELEVATED),
+                        ("disabled", BG_SURFACE)],
+            arrowcolor=[("active", BG_HOVER), ("disabled", BG_SURFACE)])
+        ffmpeg_style.layout(
+            "FFmpeg.Horizontal.TScrollbar",
+            [("FFmpeg.Horizontal.Scrollbar.trough",
+              {"sticky": "ew",
+               "children": [("FFmpeg.Horizontal.Scrollbar.thumb",
+                             {"expand": "1", "sticky": "nswe"})]})])
+
+        # Horizontal scrollbar at the bottom
+        h_scroll = ttk.Scrollbar(page, orient="horizontal",
+                                  style="FFmpeg.Horizontal.TScrollbar")
+        h_scroll.pack(side="bottom", fill="x", padx=24, pady=(0, 16))
+
+        # Body frame: canvas + vertical scrollbar
+        body = tk.Frame(page, bg=BG_ROOT)
+        body.pack(fill="both", expand=True, padx=24, pady=(16, 0))
+
+        v_scroll = ttk.Scrollbar(body, orient="vertical",
+                                  style="FFmpeg.Vertical.TScrollbar")
+        v_scroll.pack(side="right", fill="y")
+
+        scroll_canvas = tk.Canvas(body, bg=BG_ROOT, highlightthickness=0, bd=0,
+                                   xscrollcommand=h_scroll.set,
+                                   yscrollcommand=v_scroll.set)
+        scroll_canvas.pack(side="left", fill="both", expand=True)
+
+        h_scroll.configure(command=scroll_canvas.xview)
+        v_scroll.configure(command=scroll_canvas.yview)
+
         self._ffmpeg_scroll_frame = tk.Frame(scroll_canvas, bg=BG_ROOT)
+        self._ffmpeg_win_id = scroll_canvas.create_window(
+            (0, 0), window=self._ffmpeg_scroll_frame, anchor="nw")
 
         self._ffmpeg_scroll_frame.bind(
             "<Configure>",
             lambda e: scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all")))
 
-        scroll_canvas.create_window((0, 0), window=self._ffmpeg_scroll_frame, anchor="nw")
-        scroll_canvas.configure(yscrollcommand=scroll_bar.set)
+        # Sync inner frame width to fill canvas width
+        def _on_ffmpeg_canvas_configure(event):
+            cw = event.width
+            if cw > 1:
+                scroll_canvas.itemconfigure(self._ffmpeg_win_id, width=cw)
 
-        scroll_canvas.pack(side="left", fill="both", expand=True, padx=(24, 0), pady=16)
-        scroll_bar.pack(side="right", fill="y", padx=(0, 24), pady=16)
+        scroll_canvas.bind("<Configure>", _on_ffmpeg_canvas_configure, add="+")
 
-        # Enable mousewheel scrolling
-        def _on_mousewheel(event):
+        # Mousewheel scrolling (scoped to canvas, matching ColorTable behavior)
+        def _bind_ffmpeg_wheel():
+            scroll_canvas.bind_all("<MouseWheel>", _on_ffmpeg_wheel)
+
+        def _unbind_ffmpeg_wheel():
+            scroll_canvas.unbind_all("<MouseWheel>")
+
+        def _on_ffmpeg_wheel(event):
             scroll_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        scroll_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        scroll_canvas.bind("<Enter>", lambda _: _bind_ffmpeg_wheel())
+        scroll_canvas.bind("<Leave>", lambda _: _unbind_ffmpeg_wheel())
 
         self._ffmpeg_content = self._ffmpeg_scroll_frame
 
@@ -1086,8 +1157,29 @@ class HwCodecGUI:
             else:
                 self._ffmpeg_verify_status.configure(text=msg, fg=RED)
 
+        def _on_browse():
+            # Build file type filter for the platform
+            if sys.platform == "win32":
+                filetypes = [
+                    ("Executable files", "*.exe"),
+                    ("All files", "*.*"),
+                ]
+            else:
+                filetypes = [
+                    ("All files", "*"),
+                ]
+            path = filedialog.askopenfilename(
+                title="Select FFmpeg executable",
+                filetypes=filetypes,
+            )
+            if path:
+                custom_entry.delete(0, "end")
+                custom_entry.insert(0, path)
+
         _FlatButton(custom_row, text="Apply", command=_on_apply_custom,
-                    accent=True, font=(FAMILY, 9), padx=12, pady=4).pack(side="right")
+                    accent=True, font=(FAMILY, 9), padx=12, pady=4).pack(side="right", padx=(0, 4))
+        _FlatButton(custom_row, text="Browse", command=_on_browse,
+                    font=(FAMILY, 9), padx=8, pady=4).pack(side="right")
 
         # Card 1: FFmpeg Installation Status
         card1 = tk.Frame(self._ffmpeg_cards_frame, bg=BG_SURFACE,
