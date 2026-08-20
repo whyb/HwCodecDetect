@@ -131,7 +131,7 @@ ENCODERS = {
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
     "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
-    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox", "prores_ks_vulkan", "prores_ks_videotoolbox", "prores_ks"]},
+    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox", "prores_ks_vulkan", "prores_ks_videotoolbox"]},
 }
 
 # Combine both decoder and encoder data into a single structure
