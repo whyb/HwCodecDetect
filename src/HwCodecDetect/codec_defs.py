@@ -101,9 +101,11 @@ ENCODER_TITLES = {
     ("h264_vulkan", "h264"): "Vulkan Hardware H264 Encoder(Vulkan)",
     ("hevc_vulkan", "h265"): "Vulkan Hardware H265 Encoder(Vulkan)",
     ("av1_vulkan", "av1"): "Vulkan Hardware AV1 Encoder(Vulkan)",
+    ("prores_ks_vulkan", "prores"): "Apple macOS Hardware ProRes(KS) Encoder(Vulkan)",
     ("h264_videotoolbox", "h264"): "Apple macOS Hardware H264 Encoder(VideoToolbox)",
     ("hevc_videotoolbox", "h265"): "Apple macOS Hardware H265 Encoder(VideoToolbox)",
     ("prores_videotoolbox", "prores"): "Apple macOS Hardware ProRes Encoder(VideoToolbox)",
+    ("prores_ks_videotoolbox", "prores"): "Apple macOS Hardware ProRes(KS) Encoder(VideoToolbox)",
 }
 
 # Decoder definitions: codec -> {lib, hw_decoders}
@@ -129,7 +131,7 @@ ENCODERS = {
     "mpeg2": {"lib": "mpeg2video", "hw_encoders": ["mpeg2_qsv", "mpeg2_vaapi"]},
     "vp8": {"lib": "libvpx", "hw_encoders": ["vp8_vaapi"]},
     "vp9": {"lib": "libvpx-vp9", "hw_encoders": ["vp9_qsv", "vp9_vaapi"]},
-    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox"]},
+    "prores": {"lib": "prores", "hw_encoders": ["prores_videotoolbox", "prores_ks_vulkan", "prores_ks_videotoolbox", "prores_ks"]},
 }
 
 # Combine both decoder and encoder data into a single structure

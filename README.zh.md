@@ -23,6 +23,16 @@
 
 本项目正是为了解决这一痛点而生。它是一个用于自动化检测系统硬件视频编码器功能的便捷工具。它利用 FFmpeg，通过生成不同分辨率（从 240p 到 8K）的单帧视频文件，并尝试使用各种硬件编码器进行处理，以此来快速判断哪些硬件编码器在您的系统上可用以及它们所支持的分辨率。
 
+
+## 效果展示
+下面是本地运行测试的可能的结果：
+### GUI版
+![hwcodecdetect gui](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect_gui.gif)
+
+### 命令行版
+![hwcodecdetect console](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
+
+
 ## 主要功能
 ### 编码器
 脚本会自动检测并报告以下主流硬件编码器及其支持的格式：
@@ -34,8 +44,8 @@
 | Media Foundation               	       | H.264、H.265、AV1                          |
 | D3D12VA (Direct3D 12 Video Acceleration) | H.264、H.265、AV1                          |
 | VAAPI (Video Acceleration API) 	       | H.264、H.265、AV1、MJPEG、MPEG-2、VP8、VP9  |
-| Vulkan                         	       | H.264、H.265、AV1                          |
-| Apple VideoToolbox               	       | H.264、H.265、ProRes                       |
+| Vulkan                         	       | H.264、H.265、AV1、ProRes(KS)              |
+| Apple VideoToolbox               	       | H.264、H.265、ProRes、ProRes(KS)           |
 
 ### 解码器
 脚本会自动检测并报告以下主流硬件解码器及其支持的格式：
@@ -146,14 +156,3 @@ HwCodecDetect 提供 **命令行 (CLI)** 和 **图形界面 (GUI)** 两种模式
     # 图形界面模式
     hwcodecdetect --ui
     ```
-
-## 效果展示
-下面是本地运行测试的可能的结果：
-### 命令行版
-![hwcodecdetect console](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect.gif)
-
-### GUI版
-![hwcodecdetect gui](https://raw.githubusercontent.com/whyb/HwCodecDetect/main/imgs/hwcodecdetect_gui.gif)
-
-## Star增长记录
-[![Star History Chart](https://api.star-history.com/svg?repos=whyb/HwCodecDetect&type=date&legend=top-left)](https://www.star-history.com/#whyb/HwCodecDetect&type=date&legend=top-left)
